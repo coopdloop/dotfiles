@@ -9,10 +9,10 @@ if [[ -f "$HOME/homebrew/bin/brew" ]] then
   eval "$($HOME/homebrew/bin/brew shellenv)"
 fi
 
-# if [[ -f "/opt/homebrew/bin/brew" ]] then
-#   # If you're using macOS, you'll want this enabled
-#   eval "$(/opt/homebrew/bin/brew shellenv)"
-# fi
+if [[ -f "/opt/homebrew/bin/brew" ]] then
+  # If you're using macOS, you'll want this enabled
+  eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
 
 export GOPATH=$HOME/go
 export PATH=$GOPATH/bin:$PATH
@@ -87,7 +87,7 @@ alias c='clear'
 eval "$(fzf --zsh)"
 eval "$(zoxide init --cmd cd zsh)"
 
-# direnv 
+# direnv
 eval "$(direnv hook zsh)"
 
 # pyenv
@@ -97,3 +97,26 @@ eval "$(pyenv init -)"
 
 # cargo
 export PATH="$HOME/.cargo/bin:$PATH"
+
+
+
+# Neovim
+alias v=nvim
+alias vim=nvim
+export VISUAL=nvim
+
+# Git
+alias gits='git status'
+alias gita='git add -u'
+# gitm() { git commit -m "$1" }
+alias gitp='git push'
+alias gitu='git commit -m "Update $(date +%F)"'
+alias gitq='git add -u && git commit -m "Update $(date +%F)" && git push'
+
+# Obsidian
+alias oo='cd $HOME/library/Mobile\ Documents/iCloud~md~obsidian/Documents/coopdevsec'
+alias or='vim $HOME/library/Mobile\ Documents/iCloud~md~obsidian/Documents/coopdevsec/inbox/*.md'
+alias ou='cd $HOME/notion-obsidian-sync-zazencodes && node batchUpload.js --lastmod-days-window 5'
+
+# Path shortcuts
+alias nvc='cd $HOME/.config/nvim && vim'
