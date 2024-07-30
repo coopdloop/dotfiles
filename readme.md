@@ -52,6 +52,11 @@ brew install direnv
 brew install pyenv
 ```
 
+### wezterm emulator
+```
+brew install --cask wezterm
+```
+
 ## Installation
 
 First, check out the dotfiles repo into your $HOME directory using git
