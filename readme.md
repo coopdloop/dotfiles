@@ -17,6 +17,41 @@ brew install git
 brew install stow
 ```
 
+### RipGrep
+
+```
+brew install ripgrep
+```
+
+### Obsidian
+```
+install via searching for on google
+```
+
+### fzf
+```
+brew install fzf
+```
+
+### tmux
+```
+brew install tmux
+```
+
+### zoxide
+```
+brew install zoxide
+```
+
+### direnv
+```
+brew install direnv
+```
+### pyenv
+```
+brew install pyenv
+```
+
 ## Installation
 
 First, check out the dotfiles repo into your $HOME directory using git
