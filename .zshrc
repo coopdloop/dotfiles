@@ -98,7 +98,8 @@ eval "$(pyenv init -)"
 # cargo
 export PATH="$HOME/.cargo/bin:$PATH"
 
-
+# Tmux
+alias t=tmux
 
 # Neovim
 alias v=nvim
@@ -120,3 +121,6 @@ alias ou='cd $HOME/notion-obsidian-sync-zazencodes && node batchUpload.js --last
 
 # Path shortcuts
 alias nvc='cd $HOME/.config/nvim && vim'
+
+# Extended bath for bin scripts
+export PATH=~/bin:$PATH

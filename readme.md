@@ -66,6 +66,16 @@ $ git clone git@github.com/coopdloop/dotfiles.git
 $ cd dotfiles
 ```
 
+Please make sure the scripts in bin are executable by owner or respective group:
+```
+chmod 700 ./bin/*
+```
+
+Please read this documentation if using tmux:
+```
+https://github.com/tmux-plugins/tpm
+```
+
 then use GNU stow to create symlinks
 
 ```
