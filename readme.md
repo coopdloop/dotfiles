@@ -76,6 +76,12 @@ Please read this documentation if using tmux:
 https://github.com/tmux-plugins/tpm
 ```
 
+Nerd font:
+
+```
+brew install font-meslo-lg-nerd-font
+```
+
 then use GNU stow to create symlinks
 
 ```
