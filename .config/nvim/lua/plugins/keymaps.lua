@@ -19,6 +19,9 @@ vim.keymap.set("n", "<leader>il", ":Twilight<cr>")
 vim.keymap.set("n", "<leader>zm", ":ZenMode<cr>")
 
 -- format code using LSP
+vim.keymap.set("n", "<leader>pp", vim.lsp.buf.format)
+
+-- -- format code using LSP
 -- vim.keymap.set("n", "<leader>pp", vim.lsp.buf.format)
 
 -- markdown preview
@@ -36,9 +39,18 @@ vim.keymap.set({"n", "v"}, "<leader>/", ":CommentToggle<cr>")
 -- nmap('gd', vim.lsp.buf.definition, '[G]oto [D]efinition')
 -- nmap('gt', vim.lsp.buf.type_definition, 'Type [D]efinition')
 -- nmap('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
---
+
 vim.keymap.set('n', '<leader>gd', ":lua require('goto-preview').goto_preview_definition()<CR>")
 vim.keymap.set('n', '<leader>gt', ":lua require('goto-preview').goto_preview_type_definition()<CR>")
 vim.keymap.set('n', '<leader>gi', ":lua require('goto-preview').goto_preview_implementation()<CR>")
 vim.keymap.set('n', '<leader>gp', ":lua require('goto-preview').close_all_win()<CR>")
 
+
+-- LSP code actions
+vim.keymap.set('n', '<leader>ca', ":lua vim.lsp.buf.code_action()<CR>")
+
+-- LSP diagnostics
+vim.api.nvim_set_keymap('n', '<leader>cd', ":lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true})
+
+vim.keymap.set('n', '[d', function() vim.diagnostic.goto_prev() end, opts)
+vim.keymap.set('n', ']d', function() vim.diagnostic.goto_next() end, opts)
