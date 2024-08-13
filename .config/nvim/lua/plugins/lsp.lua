@@ -58,7 +58,7 @@ require('mason').setup()
 
 -- Enable the following language servers
 -- Feel free to add/remove any LSPs that you want here. They will automatically be installed
-local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'gopls', 'htmx', 'templ'}
+local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ'}
 
 -- Ensure the servers above are installed
 require('mason-lspconfig').setup {
@@ -70,6 +70,8 @@ lspconfig.html.setup({
     capabilities = capabilities,
     filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx" },
 })
+
+vim.filetype.add({extension = {templ = "templ"}})
 
 -- nvim-cmp supports additional completion capabilities
 local capabilities = vim.lsp.protocol.make_client_capabilities()
