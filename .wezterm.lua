@@ -27,6 +27,10 @@ config.enable_tab_bar = true
 config.window_decorations = "RESIZE"
 config.window_background_opacity = 0.42
 config.macos_window_background_blur = 10
+config.animation_fps = 1
+config.cursor_blink_ease_in = 'Constant'
+config.cursor_blink_ease_out = 'Constant'
+config.default_cursor_style = 'SteadyUnderline'
 
 -- and finally, return the configuration to wezterm
 return config
