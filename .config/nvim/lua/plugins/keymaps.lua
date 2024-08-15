@@ -28,7 +28,7 @@ vim.keymap.set("n", "<leader>pp", vim.lsp.buf.format)
 vim.keymap.set("n", "<leader>mp", ":MarkdownPreviewToggle<cr>")
 
 -- nvim-comment
-vim.keymap.set({"n", "v"}, "<leader>/", ":CommentToggle<cr>")
+vim.keymap.set({ "n", "v" }, "<leader>/", ":CommentToggle<cr>")
 
 ------------------
 -- goto-preview --
@@ -50,7 +50,10 @@ vim.keymap.set('n', '<leader>gp', ":lua require('goto-preview').close_all_win()<
 vim.keymap.set('n', '<leader>ca', ":lua vim.lsp.buf.code_action()<CR>")
 
 -- LSP diagnostics
-vim.api.nvim_set_keymap('n', '<leader>cd', ":lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true})
+vim.api.nvim_set_keymap('n', '<leader>cd', ":lua vim.diagnostic.open_float()<CR>", { noremap = true, silent = true })
 
 vim.keymap.set('n', '[d', function() vim.diagnostic.goto_prev() end, opts)
 vim.keymap.set('n', ']d', function() vim.diagnostic.goto_next() end, opts)
+
+-- Toggle Undotree
+vim.keymap.set('n', '<C-u>', ":UndotreeToggle<CR>")

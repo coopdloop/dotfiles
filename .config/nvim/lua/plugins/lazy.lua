@@ -56,16 +56,16 @@ require('lazy').setup({
       "nvim-tree/nvim-web-devicons",
     },
     config = function()
-        require("nvim-tree").setup {
-          sort = { sorter = "case_sensitive" },
-          view = {
-            width = 30,
-            adaptive_size = true,
-          },
-          renderer = { group_empty = true },
-          filters = { dotfiles = false },
-        }
-      end,
+      require("nvim-tree").setup {
+        sort = { sorter = "case_sensitive" },
+        view = {
+          width = 30,
+          adaptive_size = true,
+        },
+        renderer = { group_empty = true },
+        filters = { dotfiles = false },
+      }
+    end,
   },
 
   { "tpope/vim-surround" },
@@ -74,9 +74,9 @@ require('lazy').setup({
 
   {
     "goolord/alpha-nvim",
-    config = function ()
-      local alpha = require'alpha'
-      local dashboard = require'alpha.themes.dashboard'
+    config = function()
+      local alpha = require 'alpha'
+      local dashboard = require 'alpha.themes.dashboard'
       dashboard.section.header.val = {
         [[        ___                     ___          _____         ]],
         [[       /  /\      ___          /__/\        /  /::\        ]],
@@ -104,7 +104,7 @@ require('lazy').setup({
       dashboard.section.buttons.val = {
         dashboard.button("e", "  New file", "<cmd>ene <CR>"),
         dashboard.button("SPC f o", "󰈞  Recently opened files"),
-        dashboard.button( "q", "󰅚  Quit NVIM" , ":qa<CR>"),
+        dashboard.button("q", "󰅚  Quit NVIM", ":qa<CR>"),
       }
       local handle = io.popen('fortune')
       local fortune = handle:read("*a")
@@ -113,7 +113,7 @@ require('lazy').setup({
 
       dashboard.config.opts.noautocmd = true
 
-      vim.cmd[[autocmd User AlphaReady echo 'ready']]
+      vim.cmd [[autocmd User AlphaReady echo 'ready']]
 
       alpha.setup(dashboard.config)
     end
@@ -135,11 +135,11 @@ require('lazy').setup({
     config = function() require('goto-preview').setup {} end
   },
 
-  { "catppuccin/nvim", as = "catppuccin" },
+  { "catppuccin/nvim",         as = "catppuccin" },
 
   {
     "windwp/nvim-autopairs",
-      config = function() require("nvim-autopairs").setup {} end
+    config = function() require("nvim-autopairs").setup {} end
   },
 
   {
@@ -149,7 +149,7 @@ require('lazy').setup({
     end
   },
 
-  {'akinsho/bufferline.nvim', version = "*", dependencies = 'nvim-tree/nvim-web-devicons'},
+  { 'akinsho/bufferline.nvim', version = "*",    dependencies = 'nvim-tree/nvim-web-devicons' },
 
   -- { "chrisgrieser/nvim-spider" },
 
@@ -174,10 +174,10 @@ require('lazy').setup({
           }
         },
         presets = {
-          bottom_search = true, -- use a classic bottom cmdline for search
-          command_palette = true, -- position the cmdline and popupmenu together
+          bottom_search = true,         -- use a classic bottom cmdline for search
+          command_palette = true,       -- position the cmdline and popupmenu together
           long_message_to_split = true, -- long messages will be sent to a split
-          lsp_doc_border = false, -- add a border to hover docs and signature help
+          lsp_doc_border = false,       -- add a border to hover docs and signature help
         },
       })
     end,
@@ -187,7 +187,7 @@ require('lazy').setup({
       -- OPTIONAL:
       --   `nvim-notify` is only needed, if you want to use the notification view.
       --   If not available, we use `mini` as the fallback
-    --   "rcarriga/nvim-notify",
+      --   "rcarriga/nvim-notify",
     }
   },
 
@@ -219,41 +219,43 @@ require('lazy').setup({
     }
   },
 
-   -- Fancier statusline
+  -- Fancier statusline
   { 'nvim-lualine/lualine.nvim' },
 
   -- Fuzzy Finder (files, lsp, etc)
-  { 'nvim-telescope/telescope.nvim', branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' } },
+  { 'nvim-telescope/telescope.nvim',        branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' } },
   { 'nvim-telescope/telescope-symbols.nvim' },
 
-  { "folke/twilight.nvim", opts = { } },
+  { "folke/twilight.nvim",                  opts = {} },
 
   -- Treesitter playground
   { "nvim-treesitter/nvim-treesitter" },
   { "nvim-treesitter/playground" },
 
   -- line indent pretty
-  { "lukas-reineke/indent-blankline.nvim", main = "ibl", opts = {} },
+  { "lukas-reineke/indent-blankline.nvim",  main = "ibl",     opts = {} },
   {
-
-  "folke/which-key.nvim",
-  event = "VeryLazy",
-  opts = {
-    -- your configuration comes here
-    -- or leave it empty to use the default settings
-    -- refer to the configuration section below
+    "mbbill/undotree",
+    lazy = false
   },
-  keys = {
-    {
-      "<leader>?",
-      function()
-        require("which-key").show({ global = false })
-      end,
-      desc = "Buffer Local Keymaps (which-key)",
+  {
+    "folke/which-key.nvim",
+    event = "VeryLazy",
+    opts = {
+      -- your configuration comes here
+      -- or leave it empty to use the default settings
+      -- refer to the configuration section below
+    },
+    keys = {
+      {
+        "<leader>?",
+        function()
+          require("which-key").show({ global = false })
+        end,
+        desc = "Buffer Local Keymaps (which-key)",
+      },
     },
   },
-},
 
 
 })
-

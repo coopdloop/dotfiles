@@ -58,7 +58,8 @@ require('mason').setup()
 
 -- Enable the following language servers
 -- Feel free to add/remove any LSPs that you want here. They will automatically be installed
-local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraformls', 'tflint', 'lua_ls'}
+local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraformls',
+  'tflint', 'lua_ls', 'rust_analyzer' }
 
 -- Ensure the servers above are installed
 require('mason-lspconfig').setup {
@@ -66,12 +67,12 @@ require('mason-lspconfig').setup {
 }
 
 lspconfig.html.setup({
-    on_attach = on_attach,
-    capabilities = capabilities,
-    filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx" },
+  on_attach = on_attach,
+  capabilities = capabilities,
+  filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx" },
 })
 
-vim.filetype.add({extension = {templ = "templ"}})
+vim.filetype.add({ extension = { templ = "templ" } })
 
 -- nvim-cmp supports additional completion capabilities
 local capabilities = vim.lsp.protocol.make_client_capabilities()
@@ -141,7 +142,7 @@ local luasnip = require 'luasnip'
 
 cmp.setup {
   view = {
-  	entries = "native"
+    entries = "native"
   },
   snippet = {
     expand = function(args)
@@ -218,4 +219,3 @@ vim.api.nvim_create_autocmd('BufWritePre', {
   end,
   -- { desc = 'Format current buffer on save with LSP' }
 })
-
