@@ -5,6 +5,7 @@
 -- vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist)
 --
 local lspconfig = require("lspconfig")
+local capabilities = vim.lsp.protocol.make_client_capabilities()
 
 -- LSP settings.
 --  This function gets run when an LSP connects to a particular buffer.
@@ -62,8 +63,20 @@ local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss'
   'tflint', 'lua_ls', 'rust_analyzer' }
 
 -- Ensure the servers above are installed
+-- require('mason-lspconfig').setup {
+--   ensure_installed = servers,
+--   automatic_installation = true,
+-- }
+
 require('mason-lspconfig').setup {
-  ensure_installed = servers,
+    handlers = {
+      function(server_name)
+        local server = servers[server_name] or {}
+
+        server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+        require('lspconfig')[server_name].setup(server)
+      end,
+    },
 }
 
 lspconfig.html.setup({
@@ -72,10 +85,14 @@ lspconfig.html.setup({
   filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx" },
 })
 
-vim.filetype.add({ extension = { templ = "templ" } })
+require'lspconfig'.astro.setup({
+  filetypes = {"astro"}
+})
+
+
+vim.filetype.add({ extension = { templ = "templ", astro = "astro", mdx = "markdown.mdx" }, filename= {}, pattern = {} })
 
 -- nvim-cmp supports additional completion capabilities
-local capabilities = vim.lsp.protocol.make_client_capabilities()
 capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
 
 for _, lsp in ipairs(servers) do
@@ -194,6 +211,21 @@ vim.api.nvim_create_autocmd('FileType', {
   -- { desc = 'Start bash language server' }
 })
 
+vim.api.nvim_exec(
+    [[
+        autocmd BufNewFile,BufRead *.mdx set filetype=markdown.mdx
+    ]],
+    false
+)
+
+vim.api.nvim_exec(
+    [[
+        autocmd BufNewFile,BufRead *.astro set filetype=astro
+    ]],
+    false
+)
+
+
 
 -- vim.api.nvim_create_autocmd('BufWritePre', {
 --   pattern = '*.py',
@@ -208,14 +240,14 @@ vim.api.nvim_create_autocmd('FileType', {
 -- })
 
 
-vim.api.nvim_create_autocmd('BufWritePre', {
-  pattern = '*.js',
-  callback = function()
-    if vim.lsp.buf.format then
-      vim.lsp.buf.format()
-    elseif vim.lsp.buf.formatting then
-      vim.lsp.buf.formatting()
-    end
-  end,
-  -- { desc = 'Format current buffer on save with LSP' }
-})
+-- vim.api.nvim_create_autocmd('BufWritePre', {
+--   pattern = '*.js',
+--   callback = function()
+--     if vim.lsp.buf.format then
+--       vim.lsp.buf.format()
+--     elseif vim.lsp.buf.formatting then
+--       vim.lsp.buf.formatting()
+--     end
+--   end,
+--   -- { desc = 'Format current buffer on save with LSP' }
+-- })
