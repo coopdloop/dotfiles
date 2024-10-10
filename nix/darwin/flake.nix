@@ -30,6 +30,9 @@
         ];
         masApps = {
         };
+        # onActivation.cleanup = "zap";
+        onActivation.autoUpdate = true;
+        onActivation.upgrade = true;
       };
 
       fonts.packages = [
@@ -55,6 +58,14 @@
           ${pkgs.mkalias}/bin/mkalias "$src" "/Applications/Nix Apps/$app_name"
         done
       '';
+
+      system.defaults = {
+        dock.autohide = true;
+        finder.FXPreferredViewStyle = "clmv";
+        loginwindow.GuestEnabled = false;
+        NSGlobalDomain.AppleInterfaceStyle = "Dark";
+        NSGlobalDomain.KeyRepeat = 2;
+      };
 
       # Auto upgrade nix package and the daemon service.
       services.nix-daemon.enable = true;
