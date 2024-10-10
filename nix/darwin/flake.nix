@@ -18,6 +18,7 @@
           pkgs.tmux
           pkgs.wezterm
           pkgs.mkalias
+          pkgs.lima
         ];
 
       homebrew = {
