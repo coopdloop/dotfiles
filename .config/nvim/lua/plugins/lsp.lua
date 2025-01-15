@@ -59,7 +59,7 @@ require('mason').setup()
 
 -- Enable the following language servers
 -- Feel free to add/remove any LSPs that you want here. They will automatically be installed
-local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraformls', 'tflint', 'lua_ls', 'rust_analyzer', 'nil_ls' }
+local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraform_ls','tflint', 'lua_ls', 'rust_analyzer', 'nil_ls', 'yamlls', 'ansiblels', 'jinja_lsp' }
 
 -- Ensure the servers above are installed
 -- require('mason-lspconfig').setup {
@@ -68,15 +68,17 @@ local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss'
 -- }
 
 require('mason-lspconfig').setup {
-    handlers = {
-      function(server_name)
-        local server = servers[server_name] or {}
+  handlers = {
+    function(server_name)
+      local server = servers[server_name] or {}
 
-        server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-        require('lspconfig')[server_name].setup(server)
-      end,
-    },
+      server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+      require('lspconfig')[server_name].setup(server)
+    end,
+  },
 }
+
+lspconfig.yamlls.setup{}
 
 lspconfig.html.setup({
   on_attach = on_attach,
@@ -84,12 +86,12 @@ lspconfig.html.setup({
   filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx" },
 })
 
-require'lspconfig'.astro.setup({
-  filetypes = {"astro"}
+require 'lspconfig'.astro.setup({
+  filetypes = { "astro" }
 })
 
 
-vim.filetype.add({ extension = { templ = "templ", astro = "astro", mdx = "markdown.mdx" }, filename= {}, pattern = {} })
+vim.filetype.add({ extension = { templ = "templ", astro = "astro", mdx = "markdown.mdx" }, filename = {}, pattern = {} })
 
 -- nvim-cmp supports additional completion capabilities
 capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
@@ -211,17 +213,17 @@ vim.api.nvim_create_autocmd('FileType', {
 })
 
 vim.api.nvim_exec(
-    [[
+  [[
         autocmd BufNewFile,BufRead *.mdx set filetype=markdown.mdx
     ]],
-    false
+  false
 )
 
 vim.api.nvim_exec(
-    [[
+  [[
         autocmd BufNewFile,BufRead *.astro set filetype=astro
     ]],
-    false
+  false
 )
 
 

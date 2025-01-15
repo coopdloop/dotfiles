@@ -19,12 +19,22 @@
           pkgs.wezterm
           pkgs.mkalias
           pkgs.lima
+          pkgs.docker
+          pkgs.kubectl
+          pkgs.kind
         ];
 
       homebrew = {
         enable = true;
         brews = [
             "mas"
+            "ko"
+            "grype"
+            "helm"
+            "cmctl"
+            "act"
+            "trivy"
+            "argocd"
         ];
         casks = [
             "the-unarchiver"
@@ -35,6 +45,12 @@
         onActivation.autoUpdate = true;
         onActivation.upgrade = true;
       };
+
+      # Enable Docker service
+      # virtualisation.docker.enable = true;
+
+      # Add user to the docker group
+      # users.users.lariat.extraGroups = [ "docker" ];
 
       fonts.packages = [
         (pkgs.nerdfonts.override { fonts = [ "JetBrainsMono" ]; })
@@ -88,11 +104,26 @@
 
       # The platform the configuration will be used on.
       nixpkgs.hostPlatform = "aarch64-darwin";
+
+
+      # for Lima
+      nix.distributedBuilds = true;
+      nix.buildMachines = [{
+        hostName = "lima-default";
+        sshUser = "lariat";
+        protocol = "ssh-ng";
+        sshKey = "/Users/lariat/.lima/_config/user";
+        systems = [ "x86_64-linux" ];
+        maxJobs = 2;
+        speedFactor = 2;
+        supportedFeatures = [ "kvm" ];
+        mandatoryFeatures = [ ];
+      }];
     };
   in
   {
     # Build darwin flake using:
-    # $ darwin-rebuild build --flake .#simple
+    # $ darwin-rebuild build --flake .#mini
     darwinConfigurations."mini" = nix-darwin.lib.darwinSystem {
       modules = [
         configuration

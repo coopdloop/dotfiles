@@ -1,4 +1,4 @@
-# Enable Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
+# Enabl Powerlevel10k instant prompt. Should stay close to the top of ~/.zshrc.
 # Initialization code that may require console input (password prompts, [y/n]
 # confirmations, etc.) must go above this block; everything else may go below.
 if [[ -r "${XDG_CACHE_HOME:-$HOME/.cache}/p10k-instant-prompt-${(%):-%n}.zsh" ]]; then
@@ -15,7 +15,11 @@ if [[ -f "/opt/homebrew/bin/brew" ]] then
 fi
 
 export GOPATH=$HOME/go
-export PATH=$GOPATH/bin:$PATH
+export GOROOT=/usr/local/go
+export GOBIN=$GOPATH/bin
+export PATH=$PATH:$GOPATH
+export PATH=$PATH:$GOROOT/bin
+export PATH=$PATH:$GOBIN  # Add this line to include the bin directory
 
 # Set dir where zinit and plugins store
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
@@ -82,6 +86,8 @@ zstyle ':fzf-tab:complete:__zoxide_z:*' fzf-preview 'ls --color $realpath'
 alias ls='ls --color'
 alias nvim='nvim'
 alias c='clear'
+# alias docker="/Applications/Docker.app/Contents/Resources/bin/docker"
+export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
 
 # Shell integrations
 eval "$(fzf --zsh)"
@@ -105,6 +111,9 @@ alias t=tmux
 alias v=nvim
 alias vim=nvim
 export VISUAL=nvim
+
+# K8s
+alias k=kubectl
 
 # Git
 alias gits='git status'

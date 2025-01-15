@@ -1,0 +1,88 @@
+arch: "x86_64"
+
+images:
+  - location: "https://storage.googleapis.com/nixlima/nixos-x86-64.img"
+    arch: "x86_64"
+    digest: "sha256:35ba070f93aa1c620e40fb8665ea37b45f6109115c74958f4a2b0c43a2800d79"
+  # Try to use release-yyyyMMdd image if available. Note that release-yyyyMMdd will be removed after several months.
+# - location: "https://cloud-images.ubuntu.com/releases/24.04/release-20240821/ubuntu-24.04-server-cloudimg-amd64.img"
+#   arch: "x86_64"
+#   digest: "sha256:0e25ca6ee9f08ec5d4f9910054b66ae7163c6152e81a3e67689d89bd6e4dfa69"
+# - location: "https://cloud-images.ubuntu.com/releases/24.04/release-20240821/ubuntu-24.04-server-cloudimg-arm64.img"
+#   arch: "aarch64"
+#   digest: "sha256:5ecac6447be66a164626744a87a27fd4e6c6606dc683e0a233870af63df4276a"
+# # Fallback to the latest release image.
+# # Hint: run `limactl prune` to invalidate the cache
+# - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+#   arch: "x86_64"
+# - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+#   arch: "aarch64"
+
+# CPUs: if you see performance issues, try limiting cpus to 1.
+# 🟢 Builtin default: 4
+cpus: 1
+
+# Memory size
+# 🟢 Builtin default: "4GiB"
+memory: "2GiB"
+
+# Disk size
+# 🟢 Builtin default: "100GiB"
+disk: "10GiB"
+
+
+mounts:
+- location: "~"
+  9p:
+    # Try choosing "mmap" or "none" if you see a stability issue with the default "fscache".
+    cache: "fscache"
+- location: "/tmp/lima"
+  writable: true
+  9p:
+    cache: "mmap"
+
+mountType: "9p"
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      echo "System provisioning started at $(date)" > /tmp/lima_provision.log
+      env >> /tmp/lima_provision.log
+      echo "System provisioning completed at $(date)" >> /tmp/lima_provision.log
+  - mode: user
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      echo "User provisioning started at $(date)" >> /tmp/lima_provision.log
+      env >> /tmp/lima_provision.log
+      mkdir -p $HOME/.local/bin
+      if [ $(uname -m) = x86_64 ]; then
+        curl -Lo $HOME/.local/bin/kind https://kind.sigs.k8s.io/dl/v0.24.0/kind-linux-amd64
+        chmod +x $HOME/.local/bin/kind
+      fi
+      echo 'export PATH="$HOME/.local/bin:$PATH"' >> $HOME/.bashrc
+      echo "User provisioning completed at $(date)" >> /tmp/lima_provision.log
+
+# probes:
+#   - mode: readiness
+#     description: Check if Kind is installed
+#     script: |
+#       #!/bin/bash
+#       set -eux -o pipefail
+#       if [ -x "$HOME/.local/bin/kind" ]; then
+#         echo "Kind is installed"
+#         exit 0
+#       else
+#         echo "Kind is not installed"
+#         exit 1
+#       fi
+
+portForwards:
+- guestSocket: "/var/run/docker.sock"
+  hostSocket: "{{.Dir}}/sock/docker.sock"
