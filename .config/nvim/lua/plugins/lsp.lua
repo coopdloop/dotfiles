@@ -83,15 +83,9 @@ lspconfig.yamlls.setup{}
 lspconfig.html.setup({
   on_attach = on_attach,
   capabilities = capabilities,
-  filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx" },
+  filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx", "php" },
 })
 
-require 'lspconfig'.astro.setup({
-  filetypes = { "astro" }
-})
-
-
-vim.filetype.add({ extension = { templ = "templ", astro = "astro", mdx = "markdown.mdx" }, filename = {}, pattern = {} })
 
 -- nvim-cmp supports additional completion capabilities
 capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
