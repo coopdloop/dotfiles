@@ -62,7 +62,9 @@ local PALETTE = {
 	pi_down = "#0FC5ED",
 }
 
-local PI_USAGE = wezterm.home_dir .. "/.config/wezterm/bin/pi-usage"
+local BIN = wezterm.home_dir .. "/.config/wezterm/bin"
+local PI_USAGE = BIN .. "/pi-usage"
+local TERM_DASH = BIN .. "/term-dash"
 
 -- Throttle the (blocking) scan: refresh pi usage at most every 30s.
 local pi_cache = { text = "󰚩 pi …", at = 0 }
@@ -170,20 +172,23 @@ end)
 -- ---------------------------------------------------------------------------
 -- Keys
 --   CMD+SHIFT+U : full pi usage breakdown (last 14 days) in a scratch tab
+--   CMD+SHIFT+D : combined dashboard -- system HUD + pi usage -- in a scratch tab
 -- ---------------------------------------------------------------------------
+local function scratch(cmd)
+	return wezterm.action.SpawnCommandInNewTab({
+		args = {
+			"/bin/sh",
+			"-c",
+			cmd .. "; printf '\\n  press any key to close '; "
+				.. "stty raw -echo 2>/dev/null; dd bs=1 count=1 >/dev/null 2>&1; "
+				.. "stty sane 2>/dev/null",
+		},
+	})
+end
+
 config.keys = {
-	{
-		key = "u",
-		mods = "CMD|SHIFT",
-		action = wezterm.action.SpawnCommandInNewTab({
-			args = {
-				"/bin/sh",
-				"-c",
-				PI_USAGE .. " --days 14 --no-cache; echo; echo 'press q to close'; "
-					.. "read _ 2>/dev/null || sleep 30",
-			},
-		}),
-	},
+	{ key = "U", mods = "CMD|SHIFT", action = scratch(PI_USAGE .. " --days 14 --no-cache") },
+	{ key = "D", mods = "CMD|SHIFT", action = scratch(TERM_DASH) },
 }
 
 -- and finally, return the configuration to wezterm

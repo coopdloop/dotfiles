@@ -1,0 +1,42 @@
+#!/bin/sh
+# Combined terminal dashboard: system HUD + pi usage.
+# Bound to CMD+SHIFT+D in .wezterm.lua (opens in a scratch tab).
+
+bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+bold=$(printf '\033[1m'); dim=$(printf '\033[2m'); grn=$(printf '\033[32m')
+cyn=$(printf '\033[36m'); ylw=$(printf '\033[33m'); rst=$(printf '\033[0m')
+
+printf '%s\n' "${bold}${cyn}  SYSTEM${rst}"
+
+# --- load average + uptime -------------------------------------------------
+up=$(uptime | sed 's/.*up //; s/, *[0-9]* users\{0,1\}.*//; s/  */ /g')
+load=$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | sed 's/^ *//; s/ *$//')
+printf '    %-9s %s\n' "uptime" "$up"
+printf '    %-9s %s   %s(1m / 5m / 15m)%s\n' "load" "$load" "$dim" "$rst"
+
+# --- cpu count / cores ----------------------------------------------------
+cores=$(sysctl -n hw.ncpu 2>/dev/null)
+printf '    %-9s %s logical\n' "cpu" "$cores"
+
+# --- memory -------------------------------------------------------------
+memline=$(memory_pressure 2>/dev/null | awk -F': ' '/free percentage/ {print $2}')
+memtotal=$(( $(sysctl -n hw.memsize 2>/dev/null) / 1073741824 ))
+[ -n "$memline" ] && printf '    %-9s %s free  of %sG\n' "memory" "$memline" "$memtotal"
+
+# --- battery ----------------------------------------------------------
+batt=$(pmset -g batt 2>/dev/null | grep -o '[0-9]*%[^;]*;[^;]*' | head -1 | sed 's/;//g; s/  */ /g')
+[ -n "$batt" ] && printf '    %-9s %s\n' "battery" "$batt"
+
+# --- disk -----------------------------------------------------------
+disk=$(df -h / 2>/dev/null | awk 'NR==2 {print $4" free  ("$5" used)"}')
+printf '    %-9s %s\n' "disk" "$disk"
+
+# --- network ip ----------------------------------------------------
+ip=$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null)
+[ -n "$ip" ] && printf '    %-9s %s\n' "ip" "$ip"
+
+printf '\n%s\n' "${bold}${grn}  PI USAGE${rst}"
+"$bin_dir/pi-usage" --days 14 --no-cache 2>/dev/null || echo "    (pi-usage unavailable)"
+
+printf '\n%s%s%s\n' "$dim" "  $(date '+%a %d %b %H:%M:%S')" "$rst"
