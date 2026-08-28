@@ -27,7 +27,7 @@ config.enable_tab_bar = true
 config.use_fancy_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = false
 config.tab_bar_at_bottom = false
-config.status_update_interval = 1000 -- refresh the HUD every second
+config.status_update_interval = 3000 -- refresh the HUD every 3s (avoid blocking main loop too often)
 config.set_environment_variables = {
 	PATH = wezterm.home_dir
 		.. "/.pyenv/shims:"
@@ -147,20 +147,22 @@ local function mini_bar(pct, width)
 	return string.rep(BFULL, n), string.rep(BDIM, width - n)
 end
 
--- CPU: cached every 15s (top -l 1 blocks ~1s)
+-- CPU: use sysctl load average instead of `top -l 1` which blocks for ~1s
 local cpu_cache = { label = "...", pct = 0, at = 0 }
 
 local function cpu_usage()
 	local now = os.time()
-	if now - cpu_cache.at >= 15 then
+	if now - cpu_cache.at >= 10 then
 		local ok, success, stdout =
-			pcall(wezterm.run_child_process, { "/usr/bin/top", "-l", "1", "-n", "0", "-s", "0" })
+			pcall(wezterm.run_child_process, { "/usr/sbin/sysctl", "-n", "vm.loadavg" })
 		if ok and success and stdout then
-			local user, sys = stdout:match("CPU usage:%s*([%d%.]+)%%%s*user,%s*([%d%.]+)%%%s*sys")
-			if user and sys then
-				local p = tonumber(user) + tonumber(sys)
+			local load1 = stdout:match("{%s*([%d%.]+)")
+			if load1 then
+				local ncpu_ok, _, ncpu_str = pcall(wezterm.run_child_process, { "/usr/sbin/sysctl", "-n", "hw.ncpu" })
+				local ncpu = (ncpu_ok and tonumber(ncpu_str:match("%d+"))) or 8
+				local p = tonumber(load1) / ncpu * 100
 				cpu_cache.label = string.format("%.0f%%", p)
-				cpu_cache.pct = p
+				cpu_cache.pct = math.min(p, 100)
 			end
 		end
 		cpu_cache.at = now
