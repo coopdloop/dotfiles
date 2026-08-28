@@ -92,6 +92,16 @@ alias c='clear'
 # alias docker="/Applications/Docker.app/Contents/Resources/bin/docker"
 export PATH="/Applications/Docker.app/Contents/Resources/bin:$PATH"
 
+# WezTerm/tmux CWD tracking: emit OSC 7 so the terminal knows each pane's dir
+# (drives wezterm's per-window pi status + git branch segment).
+_osc7_cwd() {
+  local host=${HOST}
+  printf '\033]7;file://%s%s\033\\' "$host" "$PWD"
+}
+autoload -Uz add-zsh-hook
+add-zsh-hook chpwd _osc7_cwd
+_osc7_cwd
+
 # Shell integrations
 eval "$(fzf --zsh)"
 eval "$(zoxide init --cmd cd zsh)"
