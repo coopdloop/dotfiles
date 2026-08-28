@@ -22,7 +22,12 @@ config.colors = {
 config.font = wezterm.font("MesloLGS Nerd Font Mono")
 config.font_size = 17
 
+-- Tab bar -- also the home of the status HUD (right) and pi usage (left).
 config.enable_tab_bar = true
+config.use_fancy_tab_bar = true
+config.hide_tab_bar_if_only_one_tab = false
+config.tab_bar_at_bottom = false
+config.status_update_interval = 1000 -- refresh the HUD every second
 
 -- config.window_decorations = "RESIZE"
 config.window_background_opacity = 0.76
@@ -125,25 +130,6 @@ local function pi_usage()
 	return pi_cache.text
 end
 
-wezterm.on("update-status", function(window, _)
-	local text = pi_usage()
-	-- tint the whole segment by trend direction
-	local color = PALETTE.pi
-	if text:find("↑") then
-		color = PALETTE.pi_up
-	elseif text:find("↓") then
-		color = PALETTE.pi_down
-	end
-	window:set_left_status(wezterm.format({
-		{ Foreground = { Color = PALETTE.sep } },
-		{ Text = " " },
-		{ Foreground = { Color = color } },
-		{ Text = text .. "  " },
-		{ Foreground = { Color = PALETTE.sep } },
-		{ Text = "│ " },
-	}))
-end)
-
 -- Throttle the (blocking) sysctl call: refresh load average at most every 5s.
 local load_cache = { value = "…", at = 0 }
 
@@ -186,8 +172,25 @@ local function battery()
 end
 
 wezterm.on("update-status", function(window, _)
-	local cells = {}
+	-- ---- left: pi (AI assistant) usage for the day -----------------------
+	local pi_text = pi_usage()
+	local pi_color = PALETTE.pi
+	if pi_text:find("↑") then
+		pi_color = PALETTE.pi_up
+	elseif pi_text:find("↓") then
+		pi_color = PALETTE.pi_down
+	end
+	window:set_left_status(wezterm.format({
+		{ Foreground = { Color = PALETTE.sep } },
+		{ Text = " " },
+		{ Foreground = { Color = pi_color } },
+		{ Text = pi_text .. "  " },
+		{ Foreground = { Color = PALETTE.sep } },
+		{ Text = "│ " },
+	}))
 
+	-- ---- right: workspace · load · battery · clock -----------------------
+	local cells = {}
 	local function push(color, text)
 		table.insert(cells, { Foreground = { Color = color } })
 		table.insert(cells, { Text = text })
