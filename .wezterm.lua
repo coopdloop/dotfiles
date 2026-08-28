@@ -109,6 +109,7 @@ local PALETTE = {
 	cpu = "#FFE073",
 	ram = "#a277ff",
 	disk = "#44FFB1",
+	git = "#E52E2E",
 	clock = "#0FC5ED",
 	sep = "#214969",
 	pi = "#44FFB1",
@@ -194,6 +195,28 @@ local function ram_usage()
 	return ram_cache
 end
 
+-- Git branch: cached every 10s
+local git_cache = { branch = "", at = 0 }
+
+local function git_branch(pane)
+	local now = os.time()
+	if now - git_cache.at >= 10 then
+		local cwd = pane:get_current_working_dir()
+		local dir = cwd and cwd.file_path or wezterm.home_dir
+		local ok, success, stdout = pcall(
+			wezterm.run_child_process,
+			{ "/usr/bin/git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD" }
+		)
+		if ok and success and stdout then
+			git_cache.branch = stdout:gsub("%s+$", "")
+		else
+			git_cache.branch = ""
+		end
+		git_cache.at = now
+	end
+	return git_cache.branch
+end
+
 -- Disk: cached every 60s
 local disk_cache = { label = "...", pct = 0, at = 0 }
 
@@ -213,7 +236,7 @@ local function disk_usage()
 	return disk_cache
 end
 
-wezterm.on("update-status", function(window, _)
+wezterm.on("update-status", function(window, pane)
 	-- ---- left: pi usage --------------------------------------------------
 	local pi_text = pi_usage()
 	local pi_color = PALETTE.pi
@@ -259,6 +282,13 @@ wezterm.on("update-status", function(window, _)
 	push(PALETTE.disk, "DSK " .. dsk.label .. " ")
 	push(PALETTE.disk, df)
 	push(PALETTE.sep, de)
+
+	local branch = git_branch(pane)
+	if branch ~= "" then
+		sep()
+		push(PALETTE.git, "\xee\x9c\xa5 " .. branch)
+	end
+
 	sep()
 	push(PALETTE.clock, wezterm.strftime("%a %d %b  %H:%M"))
 	table.insert(cells, { Text = " " })

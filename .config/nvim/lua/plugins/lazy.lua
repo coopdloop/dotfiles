@@ -29,7 +29,13 @@ require('lazy').setup({
   {
     "lewis6991/gitsigns.nvim",
     config = function()
-      require('gitsigns').setup()
+      require('gitsigns').setup({
+        current_line_blame = true,
+        current_line_blame_opts = {
+          virt_text = false,
+          delay = 300,
+        },
+      })
     end
   },
 
