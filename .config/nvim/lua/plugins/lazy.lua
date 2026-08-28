@@ -365,16 +365,6 @@ require('lazy').setup({
     end,
   },
 
-  -- REPL
-  {
-    'milanglacier/yarepl.nvim',
-    config = function()
-      require('yarepl').setup {
-        metas = { aider = require('yarepl.extensions.aider').create_aider_meta() }
-      }
-    end
-  },
-
   -- Fancier statusline
   { 'nvim-lualine/lualine.nvim' },
 
