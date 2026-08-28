@@ -13,7 +13,18 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require('lazy').setup({
-  { "onsails/lspkind.nvim" },
+  { 
+    "onsails/lspkind.nvim",
+    config = function()
+      local lspkind = require("lspkind")
+      lspkind.init({
+        symbol_map = {
+          Supermaven = "",
+        },
+      })
+      vim.api.nvim_set_hl(0, "CmpItemKindSupermaven", {fg ="#6CC644"})
+    end
+  },
 
   {
     "lewis6991/gitsigns.nvim",
@@ -24,6 +35,8 @@ require('lazy').setup({
 
   {
     "ziontee113/icon-picker.nvim",
+    lazy = true,
+    cmd = { "IconPickerNormal", "IconPickerYank" },
     config = function()
       require("icon-picker").setup({ disable_legacy_commands = true })
     end
@@ -46,7 +59,7 @@ require('lazy').setup({
     },
   },
 
-  { 'folke/zen-mode.nvim' },
+  { 'folke/zen-mode.nvim', lazy = true, cmd = "ZenMode" },
 
   {
     "nvim-tree/nvim-tree.lua",
@@ -157,7 +170,26 @@ require('lazy').setup({
     "folke/noice.nvim",
     config = function()
       require("noice").setup({
-        -- add any options here
+        lsp = {
+          -- override markdown rendering so that **cmp** and other plugins use **Treesitter**
+          override = {
+            ["vim.lsp.util.convert_input_to_markdown_lines"] = true,
+            ["vim.lsp.util.stylize_markdown"] = true,
+            ["cmp.entry.get_documentation"] = true, -- requires hrsh7th/nvim-cmp
+          },
+        },
+
+        -- messages = {
+        --   -- This disables the timestamps that are causing the error
+        --   enabled = true,
+        --   view = "notify",
+        --   view_error = "notify",
+        --   view_warn = "notify",
+        --   view_history = "messages",
+        --   view_search = "virtualtext",
+        --   -- Set this to false to disable the timestamp function that's causing errors
+        --   view_timestamps = false,
+        -- },
         routes = {
           {
             filter = {
@@ -177,6 +209,7 @@ require('lazy').setup({
           bottom_search = true,         -- use a classic bottom cmdline for search
           command_palette = true,       -- position the cmdline and popupmenu together
           long_message_to_split = true, -- long messages will be sent to a split
+          inc_rename = false,
           lsp_doc_border = false,       -- add a border to hover docs and signature help
         },
       })
@@ -187,7 +220,7 @@ require('lazy').setup({
       -- OPTIONAL:
       --   `nvim-notify` is only needed, if you want to use the notification view.
       --   If not available, we use `mini` as the fallback
-      --   "rcarriga/nvim-notify",
+      "rcarriga/nvim-notify",
     }
   },
 
@@ -219,6 +252,129 @@ require('lazy').setup({
     }
   },
 
+  -- minuet-ai
+  -- {
+  --   'milanglacier/minuet-ai.nvim',
+  --   config = function()
+  --     require('minuet').setup {
+  --       virtualtext = {
+  --         auto_trigger_ft = {},
+  --         keymap = {
+  --           -- accept whole completion
+  --           accept = '<A-A>',
+  --           -- accept one line
+  --           accept_line = '<A-a>',
+  --           -- accept n lines (prompts for number)
+  --           -- e.g. "A-z 2 CR" will accept 2 lines
+  --           accept_n_lines = '<A-z>',
+  --           -- Cycle to prev completion item, or manually invoke completion
+  --           prev = '<A-[>',
+  --           -- Cycle to next completion item, or manually invoke completion
+  --           next = '<A-]>',
+  --           dismiss = '<A-e>',
+  --         },
+  --       },
+  --       lsp = {
+  --         enabled_ft = { 'toml', 'lua', 'cpp' },
+  --         -- Enables automatic completion triggering using `vim.lsp.completion.enable`
+  --         enabled_auto_trigger_ft = { 'cpp', 'lua' },
+  --       },
+  --       provider = 'claude',
+  --       provider_options = {
+  --         -- claude = {
+  --         --   max_tokens = 512,
+  --         --   -- model = 'claude-3-7-sonnet-20250219 ',
+  --         --   model = 'claude-3-5-haiku-20241022',
+  --         --   system = "see [Prompt] section for the default value",
+  --         --   few_shots = "see [Prompt] section for the default value",
+  --         --   chat_input = "See [Prompt Section for default value]",
+  --         --   stream = true,
+  --         --   api_key = 'ANTHROPIC_API_KEY',
+  --         --   optional = {
+  --         --     -- pass any additional parameters you want to send to claude request,
+  --         --     -- e.g.
+  --         --     -- stop_sequences = nil,
+  --         --   },
+  --         -- },
+  --         claude = {
+  --           model = 'claude-3-5-haiku-20241022', -- Use Claude Haiku or another model
+  --           system = nil,                        -- This will use the default system prompt
+  --           few_shots = nil,                     -- This will use the default few shot examples
+  --           chat_input = nil,                    -- This will use the default chat input
+  --           stream = true,                       -- Enable streaming for faster results
+  --           api_key = 'ANTHROPIC_API_KEY',       -- Use the environment variable
+  --           optional = {
+  --             -- Add any additional parameters here if needed
+  --           },
+  --         },
+  --       }
+  --     }
+  --   end,
+  -- },
+  -- { 'nvim-lua/plenary.nvim' },
+  -- -- optional, if you are using virtual-text frontend, nvim-cmp is not
+  -- -- required.
+  -- {
+  --   'hrsh7th/nvim-cmp',
+  --   dependencies = { 'hrsh7th/cmp-nvim-lsp', 'L3MON4D3/LuaSnip', 'saadparwaiz1/cmp_luasnip' },
+  --   -- config = function()
+  --   --   require('cmp').setup {
+  --   --     -- mapping = {
+  --   --     --   ["<A-y>"] = require('minuet').make_cmp_map()
+  --   --     --   -- and your other keymappings
+  --   --     -- },
+  --   --     sources = {
+  --   --       {
+  --   --         -- Include minuet as a source to enable autocompletion
+  --   --         { name = 'minuet' },
+  --   --         -- and your other sources
+  --   --       }
+  --   --     },
+  --   --     performance = {
+  --   --       -- It is recommended to increase the timeout duration due to
+  --   --       -- the typically slower response speed of LLMs compared to
+  --   --       -- other completion sources. This is not needed when you only
+  --   --       -- need manual completion.
+  --   --       fetching_timeout = 2000,
+  --   --     },
+  --   --   }
+  --   -- end,
+  -- },
+  -- AI Code Completion
+  {
+    "supermaven-inc/supermaven-nvim",
+    config = function()
+      require("supermaven-nvim").setup({
+        keymaps = {
+          accept_suggestion = "<C-l>",
+          clear_suggestion = "<C-]>",
+          accept_word = "<C-j>",
+        },
+        ignore_filetypes = { 
+          gitcommit = true,
+          markdown = true,
+        },
+        color = {
+          suggestion_color = "#808080",
+          cterm = 244,
+        },
+        log_level = "info",
+        disable_inline_completion = false,
+        disable_keymaps = false,
+      })
+    end,
+  },
+
+  -- REPL
+  {
+    'milanglacier/yarepl.nvim',
+    config = function()
+      require('yarepl').setup {
+        metas = { aider = require('yarepl.extensions.aider').create_aider_meta() }
+      }
+    end
+  },
+
   -- Fancier statusline
   { 'nvim-lualine/lualine.nvim' },
 
@@ -226,17 +382,17 @@ require('lazy').setup({
   { 'nvim-telescope/telescope.nvim',        branch = '0.1.x', dependencies = { 'nvim-lua/plenary.nvim' } },
   { 'nvim-telescope/telescope-symbols.nvim' },
 
-  { "folke/twilight.nvim",                  opts = {} },
+  { "folke/twilight.nvim", lazy = true, cmd = "Twilight", opts = {} },
 
-  -- Treesitter playground
-  { "nvim-treesitter/nvim-treesitter" },
-  { "nvim-treesitter/playground" },
+  -- Treesitter playground (duplicate treesitter removed)
+  { "nvim-treesitter/playground", lazy = true },
 
   -- line indent pretty
   { "lukas-reineke/indent-blankline.nvim",  main = "ibl",     opts = {} },
   {
     "mbbill/undotree",
-    lazy = false
+    lazy = true,
+    cmd = "UndotreeToggle"
   },
   {
     "folke/which-key.nvim",

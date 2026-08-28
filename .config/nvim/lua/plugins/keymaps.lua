@@ -57,3 +57,65 @@ vim.keymap.set('n', ']d', function() vim.diagnostic.goto_next() end, opts)
 
 -- Toggle Undotree
 vim.keymap.set('n', '<C-u>', ":UndotreeToggle<CR>")
+
+
+-- Aider
+local keymap = vim.api.nvim_set_keymap
+
+-- general keymap from yarepl
+keymap('n', '<Leader>as', '<Plug>(REPLStart-aider)', {
+    desc = 'Start an aider REPL',
+})
+keymap('n', '<Leader>af', '<Plug>(REPLFocus-aider)', {
+    desc = 'Focus on aider REPL',
+})
+keymap('n', '<Leader>ah', '<Plug>(REPLHide-aider)', {
+    desc = 'Hide aider REPL',
+})
+keymap('v', '<Leader>ar', '<Plug>(REPLSendVisual-aider)', {
+    desc = 'Send visual region to aider',
+})
+keymap('n', '<Leader>arr', '<Plug>(REPLSendLine-aider)', {
+    desc = 'Send lines to aider',
+})
+keymap('n', '<Leader>ar', '<Plug>(REPLSendOperator-aider)', {
+    desc = 'Send Operator to aider',
+})
+
+-- special keymap from aider
+keymap('n', '<Leader>ae', '<Plug>(AiderExec)', {
+    desc = 'Execute command in aider',
+})
+keymap('n', '<Leader>ay', '<Plug>(AiderSendYes)', {
+    desc = 'Send y to aider',
+})
+keymap('n', '<Leader>an', '<Plug>(AiderSendNo)', {
+    desc = 'Send n to aider',
+})
+keymap('n', '<Leader>ap', '<Plug>(AiderSendPaste)', {
+    desc = 'Send /paste to aider',
+})
+keymap('n', '<Leader>aa', '<Plug>(AiderSendAbort)', {
+    desc = 'Send abort to aider',
+})
+keymap('n', '<Leader>aq', '<Plug>(AiderSendExit)', {
+    desc = 'Send exit to aider',
+})
+keymap('n', '<Leader>ag', '<cmd>AiderSetPrefix<cr>', {
+    desc = 'set aider prefix',
+})
+keymap('n', '<Leader>ama', '<Plug>(AiderSendAskMode)', {
+    desc = 'Switch aider to ask mode',
+})
+keymap('n', '<Leader>amA', '<Plug>(AiderSendArchMode)', {
+    desc = 'Switch aider to architect mode',
+})
+keymap('n', '<Leader>amc', '<Plug>(AiderSendCodeMode)', {
+    desc = 'Switch aider to code mode',
+})
+keymap('n', '<Leader>aG', '<cmd>AiderRemovePrefix<cr>', {
+    desc = 'remove aider prefix',
+})
+keymap('n', '<Leader>a<space>', '<cmd>checktime<cr>', {
+    desc = 'sync file changes by aider to nvim buffer',
+})

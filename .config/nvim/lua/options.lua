@@ -1,5 +1,12 @@
 -- vim.g.python3_host_prog = os.getenv("HOME") .. '/virtualenvs/nvim-venv/bin/python' -- python code environment
 
+-- Performance optimizations
+vim.opt.lazyredraw = true -- Don't redraw while executing macros
+vim.opt.regexpengine = 1 -- Use old regexp engine (faster for some patterns)
+vim.opt.synmaxcol = 300 -- Don't highlight very long lines
+vim.opt.timeoutlen = 300 -- Faster key sequence timeout
+vim.opt.ttimeoutlen = 10 -- Faster escape sequences
+
 vim.opt.spell = true
 vim.opt.encoding = "utf-8" -- set encoding
 vim.opt.nu = true -- enable line numbers
@@ -33,7 +40,7 @@ vim.opt.sidescrolloff = 8 --minimum number of columns to keep above and below th
 vim.opt.signcolumn = "yes" -- always show the sign column, to avoid text shifting when signs are displayed
 vim.opt.isfname:append("@-@") -- include '@' in the set of characters considered part of a file name
 
-vim.opt.updatetime = 50 -- Time in milliseconds to wait before triggering the plugin events after a change
+vim.opt.updatetime = 300 -- Time in milliseconds to wait before triggering the plugin events after a change
 
 vim.api.nvim_create_autocmd({"BufNewFile", "BufRead"}, {
   pattern = "*.py",
@@ -81,9 +88,20 @@ vim.api.nvim_create_autocmd({"BufWritePre"}, {
   command = [[%s/\s\+$//e]],
 }) -- remove trailing whitespace from all lines before saving a file)
 
-local Black = vim.api.nvim_create_augroup("Black", { clear = true })
-vim.api.nvim_create_autocmd("bufWritePost", {
-  group = Black,
-  pattern = "*.py",
-  command = "silent !black %",
-})
+-- Black formatting moved to LSP formatting for better performance
+
+-- vim.api.nvim_create_autocmd('LspAttach', {
+--     callback = function(args)
+--         local client_id = args.data.client_id
+--         local bufnr = args.buf
+--         local client = vim.lsp.get_client_by_id(client_id)
+--         if not client then
+--             return
+--         end
+--
+--         if client.server_capabilities.completionProvider and client.name ~= 'minuet' then
+--             vim.lsp.completion.enable(true, client_id, bufnr, { autotrigger = true })
+--         end
+--     end,
+--     desc = 'Enable built-in auto completion',
+-- })

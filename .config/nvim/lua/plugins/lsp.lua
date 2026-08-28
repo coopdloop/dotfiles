@@ -28,7 +28,7 @@ local on_attach = function(_, bufnr)
   nmap('gd', vim.lsp.buf.definition, '[G]oto [D]efinition')
   nmap('gr', require('telescope.builtin').lsp_references, '[G]oto [R]eferences')
   nmap('gt', vim.lsp.buf.type_definition, 'Type [D]efinition')
-  -- nmap('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
+  nmap('<leader>ca', vim.lsp.buf.code_action, '[C]ode [A]ction')
   -- nmap('<leader>ds', require('telescope.builtin').lsp_document_symbols, '[D]ocument [S]ymbols')
   -- nmap('<leader>ws', require('telescope.builtin').lsp_dynamic_workspace_symbols, '[W]orkspace [S]ymbols')
 
@@ -59,7 +59,8 @@ require('mason').setup()
 
 -- Enable the following language servers
 -- Feel free to add/remove any LSPs that you want here. They will automatically be installed
-local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraform_ls','tflint', 'lua_ls', 'rust_analyzer', 'nil_ls', 'yamlls', 'ansiblels', 'jinja_lsp' }
+local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraform_ls',
+  'tflint', 'lua_ls', 'rust_analyzer', 'nil_ls', 'yamlls', 'ansiblels', 'jinja_lsp', 'ruff' }
 
 -- Ensure the servers above are installed
 -- require('mason-lspconfig').setup {
@@ -71,14 +72,37 @@ require('mason-lspconfig').setup {
   handlers = {
     function(server_name)
       local server = servers[server_name] or {}
+      
+      -- Special Python configuration
+      if server_name == 'pyright' then
+        server.settings = {
+          python = {
+            analysis = {
+              autoSearchPaths = true,
+              useLibraryCodeForTypes = true,
+              diagnosticMode = "workspace",
+            },
+          },
+        }
+      end
+      
+      -- Special Ruff configuration for Python
+      if server_name == 'ruff' then
+        server.init_options = {
+          settings = {
+            args = { "--config", "pyproject.toml" },
+          },
+        }
+      end
 
       server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
+      server.on_attach = on_attach
       require('lspconfig')[server_name].setup(server)
     end,
   },
 }
 
-lspconfig.yamlls.setup{}
+-- lspconfig.yamlls.setup{}
 
 lspconfig.html.setup({
   on_attach = on_attach,
@@ -87,15 +111,11 @@ lspconfig.html.setup({
 })
 
 
+-- lspconfig.terraform_ls.setup({})
+
+
 -- nvim-cmp supports additional completion capabilities
 capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
-
-for _, lsp in ipairs(servers) do
-  require('lspconfig')[lsp].setup {
-    on_attach = on_attach,
-    capabilities = capabilities,
-  }
-end
 
 -- Turn on lsp status information
 require('fidget').setup()
@@ -187,12 +207,24 @@ cmp.setup {
         fallback()
       end
     end, { 'i', 's' }),
+    -- ["<A-y>"] = require('minuet').make_cmp_map()
   },
   sources = {
+    { name = 'supermaven' },
     { name = 'nvim_lsp' },
     { name = 'luasnip' },
     { name = "neorg" },
+    -- { name = "minuet" },
   },
+  performance = {
+    debounce = 60,
+    throttle = 30,
+    fetching_timeout = 500,
+    confirm_resolve_timeout = 80,
+    async_budget = 1,
+    max_view_entries = 200,
+  },
+
 }
 
 vim.api.nvim_create_autocmd('FileType', {
@@ -206,19 +238,19 @@ vim.api.nvim_create_autocmd('FileType', {
   -- { desc = 'Start bash language server' }
 })
 
-vim.api.nvim_exec(
-  [[
-        autocmd BufNewFile,BufRead *.mdx set filetype=markdown.mdx
-    ]],
-  false
-)
-
-vim.api.nvim_exec(
-  [[
-        autocmd BufNewFile,BufRead *.astro set filetype=astro
-    ]],
-  false
-)
+-- vim.api.nvim_exec(
+--   [[
+--         autocmd BufNewFile,BufRead *.mdx set filetype=markdown.mdx
+--     ]],
+--   false
+-- )
+--
+-- vim.api.nvim_exec(
+--   [[
+--         autocmd BufNewFile,BufRead *.astro set filetype=astro
+--     ]],
+--   false
+-- )
 
 
 
