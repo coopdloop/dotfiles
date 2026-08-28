@@ -271,6 +271,103 @@ def date_shift(date: str, days: int) -> str:
     return (dt.date.fromisoformat(date) + dt.timedelta(days=days)).isoformat()
 
 
+def scan_session(path: str) -> dict:
+    """Aggregate a single session .jsonl: tokens, cost, current model, thinking."""
+    pricing = load_pricing()
+    agg = _blank()
+    agg["tokens"] = 0
+    model = None
+    thinking = None
+    try:
+        fh = open(path, encoding="utf-8")
+    except OSError:
+        return agg | {"model": None, "thinking": None}
+    with fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                o = json.loads(line)
+            except ValueError:
+                continue
+            typ = o.get("type")
+            if typ == "model_change":
+                mid = o.get("modelId")
+                if mid:
+                    model = mid
+                continue
+            if typ == "thinking_level_change":
+                thinking = o.get("thinkingLevel") or thinking
+                continue
+            if typ != "message":
+                continue
+            m = o.get("message") or {}
+            if m.get("role") != "assistant":
+                continue
+            if m.get("model"):
+                model = m["model"]
+            u = m.get("usage") or {}
+            if not any(u.get(k) for k in TOKEN_KEYS):
+                continue
+            for k in TOKEN_KEYS:
+                agg[k] += u.get(k, 0) or 0
+            cost = u.get("cost")
+            if isinstance(cost, dict):
+                cost = cost.get("total", 0)
+            agg["cost"] += cost or estimate_cost(model or "unknown", u, pricing)
+            agg["calls"] += 1
+    agg["tokens"] = sum(agg[k] for k in TOKEN_KEYS)
+    return agg | {"model": model, "thinking": thinking}
+
+
+def latest_session_for_cwd(cwd: str) -> str | None:
+    """Newest session .jsonl whose `session` record cwd matches."""
+    cwd = os.path.realpath(os.path.expanduser(cwd))
+    best: tuple[float, str] | None = None
+    for path in glob.glob(os.path.join(SESSIONS, "*", "*.jsonl")):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                first = fh.readline()
+        except OSError:
+            continue
+        try:
+            o = json.loads(first)
+        except ValueError:
+            continue
+        if o.get("type") != "session":
+            continue
+        sc = o.get("cwd")
+        if not sc or os.path.realpath(os.path.expanduser(sc)) != cwd:
+            continue
+        try:
+            mt = os.path.getmtime(path)
+        except OSError:
+            continue
+        if best is None or mt > best[0]:
+            best = (mt, path)
+    return best[1] if best else None
+
+
+def window_oneline(cwd: str) -> str:
+    path = latest_session_for_cwd(cwd)
+    if not path:
+        return "\u29c9 pi: no session"
+    s = scan_session(path)
+    if not s.get("model") and not s["tokens"]:
+        return "\u29c9 pi: idle"
+    name = short_model(s.get("model") or "?")
+    think = (s.get("thinking") or "").lower()
+    think_abbr = {"minimal": "min", "low": "lo", "medium": "med",
+                  "high": "hi", "max": "max"}.get(think, "")
+    think_tag = f" \u00b7{think_abbr}" if think_abbr else ""
+    cost = f"${s['cost']:.2f}" if s["cost"] >= 0.01 else "$0"
+    return (
+        f"\u29c9 {name}{think_tag}  "
+        f"{human_tokens(s['tokens'])} tok  {cost}"
+    )
+
+
 def full_report(agg: dict, date: str, span: int) -> str:
     out: list[str] = []
     dates = [date_shift(date, -i) for i in range(span)][::-1]
@@ -316,6 +413,9 @@ def full_report(agg: dict, date: str, span: int) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--oneline", action="store_true")
+    ap.add_argument("--window", metavar="CWD",
+                    help="per-window line: model + tokens/cost for the latest "
+                         "pi session in CWD")
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--date", default=dt.date.today().isoformat())
     ap.add_argument("--days", type=int, default=1)
@@ -323,8 +423,12 @@ def main() -> int:
     args = ap.parse_args()
 
     if not os.path.isdir(SESSIONS):
-        msg = "󰚩 pi: no sessions" if args.oneline else "pi sessions dir not found"
+        msg = "󰚩 pi: no sessions" if (args.oneline or args.window) else "pi sessions dir not found"
         print(msg)
+        return 0
+
+    if args.window:
+        print(window_oneline(args.window))
         return 0
 
     agg = get_aggregate(use_cache=not args.no_cache)

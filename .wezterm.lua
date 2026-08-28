@@ -121,19 +121,26 @@ local BIN = wezterm.home_dir .. "/.config/wezterm/bin"
 local PI_USAGE = BIN .. "/pi-usage"
 local TERM_DASH = BIN .. "/term-dash"
 
--- Throttle the (blocking) scan: refresh pi usage at most every 30s.
-local pi_cache = { text = "pi ...", at = 0 }
+-- Per-window pi status: model + tokens/cost for the pi session in this pane's
+-- cwd. Throttle the (blocking) scan: refresh at most every 15s, keyed by cwd
+-- so switching projects updates promptly.
+local pi_win_cache = {}
 
-local function pi_usage()
+local function pi_window(dir)
+	dir = dir or wezterm.home_dir
 	local now = os.time()
-	if now - pi_cache.at >= 30 then
-		local ok, success, stdout = pcall(wezterm.run_child_process, { PI_USAGE, "--oneline" })
+	local c = pi_win_cache[dir]
+	if not c or now - c.at >= 15 then
+		c = c or { text = "" }
+		local ok, success, stdout =
+			pcall(wezterm.run_child_process, { PI_USAGE, "--window", dir })
 		if ok and success and stdout and #stdout > 0 then
-			pi_cache.text = stdout:gsub("%s+$", "")
+			c.text = stdout:gsub("%s+$", "")
 		end
-		pi_cache.at = now
+		c.at = now
+		pi_win_cache[dir] = c
 	end
-	return pi_cache.text
+	return c.text
 end
 
 -- Mini bar: filled █ + empty ░ in two colors
@@ -239,22 +246,22 @@ local function disk_usage()
 end
 
 wezterm.on("update-status", function(window, pane)
-	-- ---- left: pi usage --------------------------------------------------
-	local pi_text = pi_usage()
-	local pi_color = PALETTE.pi
-	if pi_text:find("\xe2\x86\x91") then
-		pi_color = PALETTE.pi_up
-	elseif pi_text:find("\xe2\x86\x93") then
-		pi_color = PALETTE.pi_down
+	-- ---- left: per-window pi model + session usage -----------------------
+	local cwd = pane and pane:get_current_working_dir()
+	local dir = cwd and cwd.file_path or wezterm.home_dir
+	local pi_text = pi_window(dir)
+	if pi_text == "" then
+		window:set_left_status("")
+	else
+		window:set_left_status(wezterm.format({
+			{ Foreground = { Color = PALETTE.sep } },
+			{ Text = " " },
+			{ Foreground = { Color = PALETTE.pi } },
+			{ Text = pi_text .. "  " },
+			{ Foreground = { Color = PALETTE.sep } },
+			{ Text = "\xe2\x94\x82 " },
+		}))
 	end
-	window:set_left_status(wezterm.format({
-		{ Foreground = { Color = PALETTE.sep } },
-		{ Text = " " },
-		{ Foreground = { Color = pi_color } },
-		{ Text = pi_text .. "  " },
-		{ Foreground = { Color = PALETTE.sep } },
-		{ Text = "\xe2\x94\x82 " },
-	}))
 
 	-- ---- right: cpu · ram · disk · clock ---------------------------------
 	local cells = {}
