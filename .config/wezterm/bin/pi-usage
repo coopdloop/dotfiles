@@ -1,0 +1,345 @@
+#!/usr/bin/env python3
+"""Aggregate `pi` (AI coding assistant) token usage + cost by day.
+
+Reads ~/.pi/agent/sessions/**/*.jsonl (one JSON object per line). Assistant
+messages carry message.usage {input,output,cacheRead,cacheWrite,cost{...}} and
+message.model. Subagent runs are also picked up from
+sessions/**/subagent-artifacts/*_meta.json (timestamp taken from file mtime).
+
+Usage:
+  pi-usage                 full report for today (+ deltas vs prior days)
+  pi-usage --oneline       compact single line for a status bar
+  pi-usage --date 2026-08-27
+  pi-usage --days 7        report the last N days instead of just today
+  pi-usage --json          raw aggregate as JSON
+  pi-usage --no-cache      bypass the 30s scan cache
+
+Cost numbers use per-message cost when pi recorded it, otherwise they are
+estimated from ~/.pi/agent/models-store.json pricing ($ per million tokens).
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import glob
+import json
+import os
+import sys
+import time
+from collections import defaultdict
+
+PI_ROOT = os.path.expanduser("~/.pi/agent")
+SESSIONS = os.path.join(PI_ROOT, "sessions")
+MODELS_STORE = os.path.join(PI_ROOT, "models-store.json")
+CACHE_PATH = os.path.join(
+    os.environ.get("TMPDIR", "/tmp").rstrip("/"), "pi-usage-cache.json"
+)
+CACHE_TTL = 30  # seconds
+
+TOKEN_KEYS = ("input", "output", "cacheRead", "cacheWrite")
+
+
+# ---------------------------------------------------------------------------
+# pricing
+# ---------------------------------------------------------------------------
+def load_pricing() -> dict[str, dict]:
+    pricing: dict[str, dict] = {}
+    try:
+        store = json.load(open(MODELS_STORE))
+    except Exception:
+        return pricing
+    for provider, blob in store.items():
+        if not isinstance(blob, dict):
+            continue
+        for m in blob.get("models", []):
+            cost = m.get("cost") or {}
+            mid = m.get("id")
+            if not mid:
+                continue
+            pricing[mid] = cost
+            pricing[f"{provider}/{mid}"] = cost
+    return pricing
+
+
+def estimate_cost(model: str, u: dict, pricing: dict) -> float:
+    c = pricing.get(model) or pricing.get(model.split("/")[-1]) or {}
+    if not c:
+        return 0.0
+    total = 0.0
+    for k in TOKEN_KEYS:
+        total += (u.get(k, 0) or 0) * (c.get(k, 0) or 0)
+    return total / 1_000_000
+
+
+# ---------------------------------------------------------------------------
+# scan
+# ---------------------------------------------------------------------------
+def _local_day(ts) -> str | None:
+    if isinstance(ts, (int, float)) or (isinstance(ts, str) and ts.isdigit()):
+        n = float(ts)
+        if n > 1e11:  # milliseconds
+            n /= 1000.0
+        try:
+            return dt.datetime.fromtimestamp(n, dt.timezone.utc).astimezone().date().isoformat()
+        except (OSError, OverflowError, ValueError):
+            return None
+    if not isinstance(ts, str) or not ts:
+        return None
+    try:
+        d = dt.datetime.fromisoformat(ts.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=dt.timezone.utc)
+    return d.astimezone().date().isoformat()
+
+
+def _blank() -> dict:
+    return {k: 0 for k in TOKEN_KEYS} | {"cost": 0.0, "calls": 0}
+
+
+def scan() -> dict[str, dict[str, dict]]:
+    """Return {day: {model: aggregate}}."""
+    pricing = load_pricing()
+    days: dict[str, dict[str, dict]] = defaultdict(lambda: defaultdict(_blank))
+
+    def add(day, model, u, recorded_cost):
+        agg = days[day][model]
+        for k in TOKEN_KEYS:
+            agg[k] += u.get(k, 0) or 0
+        agg["cost"] += (
+            recorded_cost
+            if recorded_cost
+            else estimate_cost(model, u, pricing)
+        )
+        agg["calls"] += 1
+
+    for path in glob.glob(os.path.join(SESSIONS, "**", "*.jsonl"), recursive=True):
+        try:
+            fh = open(path, encoding="utf-8")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except ValueError:
+                    continue
+                if o.get("type") != "message":
+                    continue
+                m = o.get("message") or {}
+                if m.get("role") != "assistant":
+                    continue
+                u = m.get("usage") or {}
+                if not any(u.get(k) for k in TOKEN_KEYS):
+                    continue
+                day = _local_day(m.get("timestamp"))
+                if day is None:
+                    day = _local_day(o.get("timestamp"))
+                if not day:
+                    continue
+                cost = u.get("cost")
+                if isinstance(cost, dict):
+                    cost = cost.get("total", 0)
+                add(day, canon_model(m.get("model") or "unknown"), u, cost or 0.0)
+
+    # subagent / delegate runs -- timestamp from file mtime
+    for path in glob.glob(
+        os.path.join(SESSIONS, "**", "subagent-artifacts", "*_meta.json"),
+        recursive=True,
+    ):
+        try:
+            meta = json.load(open(path, encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        u = meta.get("usage") or {}
+        if not any(u.get(k) for k in TOKEN_KEYS):
+            continue
+        day = dt.datetime.fromtimestamp(os.path.getmtime(path)).date().isoformat()
+        add(day, canon_model(meta.get("model") or "unknown"), u, u.get("cost") or 0.0)
+
+    return {d: dict(models) for d, models in days.items()}
+
+
+# ---------------------------------------------------------------------------
+# cache
+# ---------------------------------------------------------------------------
+def newest_session_mtime() -> float:
+    newest = 0.0
+    for pat in ("**/*.jsonl", "**/subagent-artifacts/*_meta.json"):
+        for p in glob.glob(os.path.join(SESSIONS, pat), recursive=True):
+            try:
+                newest = max(newest, os.path.getmtime(p))
+            except OSError:
+                pass
+    return newest
+
+
+def get_aggregate(use_cache: bool = True) -> dict:
+    if use_cache:
+        try:
+            st = os.stat(CACHE_PATH)
+            fresh = time.time() - st.st_mtime < CACHE_TTL
+            if fresh and st.st_mtime >= newest_session_mtime():
+                return json.load(open(CACHE_PATH))
+        except (OSError, ValueError):
+            pass
+    data = scan()
+    try:
+        tmp = CACHE_PATH + f".{os.getpid()}"
+        json.dump(data, open(tmp, "w"))
+        os.replace(tmp, CACHE_PATH)
+    except OSError:
+        pass
+    return data
+
+
+# ---------------------------------------------------------------------------
+# formatting
+# ---------------------------------------------------------------------------
+def human_tokens(n: float) -> str:
+    n = float(n)
+    for unit, div in (("B", 1e9), ("M", 1e6), ("K", 1e3)):
+        if n >= div:
+            return f"{n / div:.1f}{unit}".replace(".0", "")
+    return str(int(n))
+
+
+FAMILIES = ("opus", "sonnet", "haiku", "fable", "gemini", "gpt", "llama",
+            "qwen", "deepseek", "grok", "mistral", "kimi", "glm", "nemotron",
+            "minimax", "laguna")
+
+
+def canon_model(m: str) -> str:
+    """Merge inconsistent prefixes: openrouter/stealth/x == stealth/x."""
+    parts = m.split("/")
+    return "/".join(parts[-2:]) if len(parts) > 2 else m
+
+
+def model_family(m: str) -> str:
+    tail = canon_model(m).split("/")[-1].lower()
+    for kw in FAMILIES:
+        if kw in tail:
+            return kw
+    return tail.replace(":free", "")[:10]
+
+
+def short_model(m: str) -> str:
+    tail = canon_model(m).split("/")[-1]
+    return tail.replace("claude-", "").replace(":free", "")[:16]
+
+
+def day_totals(models: dict) -> dict:
+    tot = _blank()
+    for agg in models.values():
+        for k in TOKEN_KEYS:
+            tot[k] += agg[k]
+        tot["cost"] += agg["cost"]
+        tot["calls"] += agg["calls"]
+    tot["tokens"] = sum(tot[k] for k in TOKEN_KEYS)
+    return tot
+
+
+def pct_delta(cur: float, prev: float) -> str:
+    if not prev:
+        return "—" if not cur else "new"
+    d = (cur - prev) / prev * 100
+    arrow = "↑" if d >= 0 else "↓"
+    return f"{arrow}{abs(d):.0f}%"
+
+
+def oneline(agg: dict, date: str) -> str:
+    models = agg.get(date, {})
+    if not models:
+        return "󰚩 pi: idle today"
+    t = day_totals(models)
+    prev = date_shift(date, -1)
+    delta = pct_delta(t["tokens"], day_totals(agg.get(prev, {}))["tokens"] if agg.get(prev) else 0)
+    top = sorted(models.items(), key=lambda kv: -sum(kv[1][k] for k in TOKEN_KEYS))
+    names = "·".join(dict.fromkeys(model_family(m) for m, _ in top[:3]))
+    cost = f"${t['cost']:.2f}" if t["cost"] >= 0.01 else "$0"
+    return (
+        f"󰚩 {human_tokens(t['tokens'])} tok  "
+        f"{human_tokens(t['output'])}↓out  {cost}  {delta}  {names}"
+    )
+
+
+def date_shift(date: str, days: int) -> str:
+    return (dt.date.fromisoformat(date) + dt.timedelta(days=days)).isoformat()
+
+
+def full_report(agg: dict, date: str, span: int) -> str:
+    out: list[str] = []
+    dates = [date_shift(date, -i) for i in range(span)][::-1]
+    week = [d for d in (date_shift(date, -i) for i in range(1, 8)) if agg.get(d)]
+    week_avg = (
+        sum(day_totals(agg[d])["tokens"] for d in week) / len(week) if week else 0
+    )
+
+    for d in dates:
+        models = agg.get(d, {})
+        if not models and d != date:
+            continue
+        t = day_totals(models)
+        prev = day_totals(agg.get(date_shift(d, -1), {})) if agg.get(date_shift(d, -1)) else None
+        head = f"  {d}   {human_tokens(t['tokens'])} tok   ${t['cost']:.2f}   {t['calls']} calls"
+        if prev:
+            head += f"   {pct_delta(t['tokens'], prev['tokens'])} vs prev day"
+        if d == date and week_avg:
+            head += f"   {pct_delta(t['tokens'], week_avg)} vs 7d avg"
+        out.append(head)
+        if d == date:
+            rows = sorted(
+                models.items(),
+                key=lambda kv: -sum(kv[1][k] for k in TOKEN_KEYS),
+            )
+            for model, a in rows:
+                tok = sum(a[k] for k in TOKEN_KEYS)
+                cache = a["cacheRead"] + a["cacheWrite"]
+                out.append(
+                    f"      {short_model(model):<16} "
+                    f"{human_tokens(tok):>7} tok  "
+                    f"in {human_tokens(a['input']):>6}  "
+                    f"out {human_tokens(a['output']):>6}  "
+                    f"cache {human_tokens(cache):>6}  "
+                    f"${a['cost']:.2f}  ({a['calls']})"
+                )
+    if not out:
+        return "no pi usage recorded"
+    return "\n".join(out)
+
+
+# ---------------------------------------------------------------------------
+def main() -> int:
+    ap = argparse.ArgumentParser(add_help=True)
+    ap.add_argument("--oneline", action="store_true")
+    ap.add_argument("--json", action="store_true")
+    ap.add_argument("--date", default=dt.date.today().isoformat())
+    ap.add_argument("--days", type=int, default=1)
+    ap.add_argument("--no-cache", action="store_true")
+    args = ap.parse_args()
+
+    if not os.path.isdir(SESSIONS):
+        msg = "󰚩 pi: no sessions" if args.oneline else "pi sessions dir not found"
+        print(msg)
+        return 0
+
+    agg = get_aggregate(use_cache=not args.no_cache)
+
+    if args.json:
+        print(json.dumps(agg, indent=2))
+    elif args.oneline:
+        print(oneline(agg, args.date))
+    else:
+        print(full_report(agg, args.date, max(1, args.days)))
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

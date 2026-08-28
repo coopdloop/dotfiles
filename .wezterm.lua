@@ -46,7 +46,9 @@ config.window_frame = {
 }
 
 -- ---------------------------------------------------------------------------
--- Live right-status HUD: workspace · load · battery · clock
+-- Status HUD
+--   left  : pi (AI assistant) token usage / cost for the day
+--   right : workspace · load · battery · clock
 -- ---------------------------------------------------------------------------
 local PALETTE = {
 	workspace = "#a277ff",
@@ -55,7 +57,46 @@ local PALETTE = {
 	battery_low = "#E52E2E",
 	clock = "#0FC5ED",
 	sep = "#214969",
+	pi = "#44FFB1",
+	pi_up = "#FFE073",
+	pi_down = "#0FC5ED",
 }
+
+local PI_USAGE = wezterm.home_dir .. "/.config/wezterm/bin/pi-usage"
+
+-- Throttle the (blocking) scan: refresh pi usage at most every 30s.
+local pi_cache = { text = "󰚩 pi …", at = 0 }
+
+local function pi_usage()
+	local now = os.time()
+	if now - pi_cache.at >= 30 then
+		local ok, stdout = pcall(wezterm.run_child_process, { PI_USAGE, "--oneline" })
+		if ok and stdout and #stdout > 0 then
+			pi_cache.text = stdout:gsub("%s+$", "")
+		end
+		pi_cache.at = now
+	end
+	return pi_cache.text
+end
+
+wezterm.on("update-status", function(window, _)
+	local text = pi_usage()
+	-- tint the whole segment by trend direction
+	local color = PALETTE.pi
+	if text:find("↑") then
+		color = PALETTE.pi_up
+	elseif text:find("↓") then
+		color = PALETTE.pi_down
+	end
+	window:set_left_status(wezterm.format({
+		{ Foreground = { Color = PALETTE.sep } },
+		{ Text = " " },
+		{ Foreground = { Color = color } },
+		{ Text = text .. "  " },
+		{ Foreground = { Color = PALETTE.sep } },
+		{ Text = "│ " },
+	}))
+end)
 
 -- Throttle the (blocking) sysctl call: refresh load average at most every 5s.
 local load_cache = { value = "…", at = 0 }
@@ -98,7 +139,7 @@ local function battery()
 	return string.format("%s %.0f%%", icon, pct), pct <= 20 and b.state ~= "Charging"
 end
 
-wezterm.on("update-right-status", function(window, _)
+wezterm.on("update-status", function(window, _)
 	local cells = {}
 
 	local function push(color, text)
@@ -125,6 +166,25 @@ wezterm.on("update-right-status", function(window, _)
 
 	window:set_right_status(wezterm.format(cells))
 end)
+
+-- ---------------------------------------------------------------------------
+-- Keys
+--   CMD+SHIFT+U : full pi usage breakdown (last 14 days) in a scratch tab
+-- ---------------------------------------------------------------------------
+config.keys = {
+	{
+		key = "u",
+		mods = "CMD|SHIFT",
+		action = wezterm.action.SpawnCommandInNewTab({
+			args = {
+				"/bin/sh",
+				"-c",
+				PI_USAGE .. " --days 14 --no-cache; echo; echo 'press q to close'; "
+					.. "read _ 2>/dev/null || sleep 30",
+			},
+		}),
+	},
+}
 
 -- and finally, return the configuration to wezterm
 return config
