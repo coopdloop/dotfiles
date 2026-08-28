@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/Users/lariat/.pyenv/versions/3.12.3/bin/python3
 """Aggregate `pi` (AI coding assistant) token usage + cost by day.
 
 Reads ~/.pi/agent/sessions/**/*.jsonl (one JSON object per line). Assistant

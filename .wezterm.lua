@@ -28,6 +28,12 @@ config.use_fancy_tab_bar = true
 config.hide_tab_bar_if_only_one_tab = false
 config.tab_bar_at_bottom = false
 config.status_update_interval = 1000 -- refresh the HUD every second
+config.set_environment_variables = {
+	PATH = wezterm.home_dir
+		.. "/.pyenv/shims:"
+		.. wezterm.home_dir
+		.. "/.pyenv/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+}
 
 -- config.window_decorations = "RESIZE"
 config.window_background_opacity = 0.76
@@ -97,13 +103,12 @@ end
 -- ---------------------------------------------------------------------------
 -- Status HUD
 --   left  : pi (AI assistant) token usage / cost for the day
---   right : workspace · load · battery · clock
+--   right : cpu · ram · disk · clock
 -- ---------------------------------------------------------------------------
 local PALETTE = {
-	workspace = "#a277ff",
-	load = "#FFE073",
-	battery = "#44FFB1",
-	battery_low = "#E52E2E",
+	cpu = "#FFE073",
+	ram = "#a277ff",
+	disk = "#44FFB1",
 	clock = "#0FC5ED",
 	sep = "#214969",
 	pi = "#44FFB1",
@@ -116,13 +121,13 @@ local PI_USAGE = BIN .. "/pi-usage"
 local TERM_DASH = BIN .. "/term-dash"
 
 -- Throttle the (blocking) scan: refresh pi usage at most every 30s.
-local pi_cache = { text = "󰚩 pi …", at = 0 }
+local pi_cache = { text = "pi ...", at = 0 }
 
 local function pi_usage()
 	local now = os.time()
 	if now - pi_cache.at >= 30 then
-		local ok, stdout = pcall(wezterm.run_child_process, { PI_USAGE, "--oneline" })
-		if ok and stdout and #stdout > 0 then
+		local ok, success, stdout = pcall(wezterm.run_child_process, { PI_USAGE, "--oneline" })
+		if ok and success and stdout and #stdout > 0 then
 			pi_cache.text = stdout:gsub("%s+$", "")
 		end
 		pi_cache.at = now
@@ -130,54 +135,91 @@ local function pi_usage()
 	return pi_cache.text
 end
 
--- Throttle the (blocking) sysctl call: refresh load average at most every 5s.
-local load_cache = { value = "…", at = 0 }
-
-local function load_average()
-	local now = os.time()
-	if now - load_cache.at >= 5 then
-		local ok, stdout = pcall(wezterm.run_child_process, { "sysctl", "-n", "vm.loadavg" })
-		if ok and stdout then
-			-- stdout looks like: { 1.98 2.05 2.15 }
-			local one = stdout:match("{%s*([%d%.]+)")
-			if one then
-				load_cache.value = one
-			end
-		end
-		load_cache.at = now
-	end
-	return load_cache.value
+-- Mini bar: filled █ + empty ░ in two colors
+local BFULL = "\xe2\x96\x88" -- █
+local BDIM = "\xe2\x96\x91" -- ░
+local function mini_bar(pct, width)
+	width = width or 6
+	local n = math.floor(pct / 100 * width + 0.5)
+	if n > width then n = width end
+	if n < 0 then n = 0 end
+	return string.rep(BFULL, n), string.rep(BDIM, width - n)
 end
 
-local function battery()
-	local info = wezterm.battery_info()
-	if not info or #info == 0 then
-		return nil, false
+-- CPU: cached every 15s (top -l 1 blocks ~1s)
+local cpu_cache = { label = "...", pct = 0, at = 0 }
+
+local function cpu_usage()
+	local now = os.time()
+	if now - cpu_cache.at >= 15 then
+		local ok, success, stdout =
+			pcall(wezterm.run_child_process, { "/usr/bin/top", "-l", "1", "-n", "0", "-s", "0" })
+		if ok and success and stdout then
+			local user, sys = stdout:match("CPU usage:%s*([%d%.]+)%%%s*user,%s*([%d%.]+)%%%s*sys")
+			if user and sys then
+				local p = tonumber(user) + tonumber(sys)
+				cpu_cache.label = string.format("%.0f%%", p)
+				cpu_cache.pct = p
+			end
+		end
+		cpu_cache.at = now
 	end
-	local b = info[1]
-	local pct = b.state_of_charge * 100
-	local icon = "󰁹"
-	if b.state == "Charging" then
-		icon = "󰂄"
-	elseif pct <= 10 then
-		icon = "󰁺"
-	elseif pct <= 30 then
-		icon = "󰁼"
-	elseif pct <= 60 then
-		icon = "󰁾"
-	elseif pct <= 90 then
-		icon = "󰂀"
+	return cpu_cache
+end
+
+-- RAM: cached every 10s
+local ram_cache = { label = "...", pct = 0, at = 0 }
+
+local function ram_usage()
+	local now = os.time()
+	if now - ram_cache.at >= 10 then
+		local ok1, s1, total_str =
+			pcall(wezterm.run_child_process, { "/usr/sbin/sysctl", "-n", "hw.memsize" })
+		local ok2, s2, vmstat = pcall(wezterm.run_child_process, { "/usr/bin/vm_stat" })
+		if ok1 and s1 and total_str and ok2 and s2 and vmstat then
+			local total = tonumber(total_str:match("(%d+)"))
+			local ps = tonumber(vmstat:match("page size of (%d+)")) or 16384
+			local active = tonumber(vmstat:match("Pages active:%s+(%d+)")) or 0
+			local wired = tonumber(vmstat:match("Pages wired down:%s+(%d+)")) or 0
+			local compressed = tonumber(vmstat:match("Pages occupied by compressor:%s+(%d+)")) or 0
+			if total and total > 0 then
+				local used_gb = (active + wired + compressed) * ps / 1073741824
+				local total_gb = total / 1073741824
+				ram_cache.label = string.format("%.1f/%.0fG", used_gb, total_gb)
+				ram_cache.pct = used_gb / total_gb * 100
+			end
+		end
+		ram_cache.at = now
 	end
-	return string.format("%s %.0f%%", icon, pct), pct <= 20 and b.state ~= "Charging"
+	return ram_cache
+end
+
+-- Disk: cached every 60s
+local disk_cache = { label = "...", pct = 0, at = 0 }
+
+local function disk_usage()
+	local now = os.time()
+	if now - disk_cache.at >= 60 then
+		local ok, success, stdout = pcall(wezterm.run_child_process, { "/bin/df", "-h", "/" })
+		if ok and success and stdout then
+			local total, used, _, pct = stdout:match("\n%S+%s+(%S+)%s+(%S+)%s+(%S+)%s+(%d+)%%")
+			if pct then
+				disk_cache.label = used .. "/" .. total
+				disk_cache.pct = tonumber(pct)
+			end
+		end
+		disk_cache.at = now
+	end
+	return disk_cache
 end
 
 wezterm.on("update-status", function(window, _)
-	-- ---- left: pi (AI assistant) usage for the day -----------------------
+	-- ---- left: pi usage --------------------------------------------------
 	local pi_text = pi_usage()
 	local pi_color = PALETTE.pi
-	if pi_text:find("↑") then
+	if pi_text:find("\xe2\x86\x91") then
 		pi_color = PALETTE.pi_up
-	elseif pi_text:find("↓") then
+	elseif pi_text:find("\xe2\x86\x93") then
 		pi_color = PALETTE.pi_down
 	end
 	window:set_left_status(wezterm.format({
@@ -186,10 +228,10 @@ wezterm.on("update-status", function(window, _)
 		{ Foreground = { Color = pi_color } },
 		{ Text = pi_text .. "  " },
 		{ Foreground = { Color = PALETTE.sep } },
-		{ Text = "│ " },
+		{ Text = "\xe2\x94\x82 " },
 	}))
 
-	-- ---- right: workspace · load · battery · clock -----------------------
+	-- ---- right: cpu · ram · disk · clock ---------------------------------
 	local cells = {}
 	local function push(color, text)
 		table.insert(cells, { Foreground = { Color = color } })
@@ -199,18 +241,26 @@ wezterm.on("update-status", function(window, _)
 		push(PALETTE.sep, "  ")
 	end
 
-	push(PALETTE.workspace, "󱂬 " .. window:active_workspace())
-	sep()
-	push(PALETTE.load, "󰓅 " .. load_average())
+	local cpu = cpu_usage()
+	local ram = ram_usage()
+	local dsk = disk_usage()
+	local cf, ce = mini_bar(cpu.pct, 6)
+	local rf, re = mini_bar(ram.pct, 6)
+	local df, de = mini_bar(dsk.pct, 6)
 
-	local bat, low = battery()
-	if bat then
-		sep()
-		push(low and PALETTE.battery_low or PALETTE.battery, bat)
-	end
-
+	push(PALETTE.cpu, "CPU " .. cpu.label .. " ")
+	push(PALETTE.cpu, cf)
+	push(PALETTE.sep, ce)
 	sep()
-	push(PALETTE.clock, "󰥔 " .. wezterm.strftime("%a %d %b  %H:%M"))
+	push(PALETTE.ram, "RAM " .. ram.label .. " ")
+	push(PALETTE.ram, rf)
+	push(PALETTE.sep, re)
+	sep()
+	push(PALETTE.disk, "DSK " .. dsk.label .. " ")
+	push(PALETTE.disk, df)
+	push(PALETTE.sep, de)
+	sep()
+	push(PALETTE.clock, wezterm.strftime("%a %d %b  %H:%M"))
 	table.insert(cells, { Text = " " })
 
 	window:set_right_status(wezterm.format(cells))
