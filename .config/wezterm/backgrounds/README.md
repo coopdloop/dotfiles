@@ -7,7 +7,9 @@ up automatically on the next config reload (`Cmd+Shift+R`).
 - If several images are present, the **alphabetically first** one wins. Prefix
   with a number (`01-nebula.jpg`) to pick, or just keep one file here.
 - No image here → falls back to the solid `#011423` background.
-- Images are `.gitignore`d, so wallpapers stay out of the dotfiles repo.
+- Wallpapers are `.gitignore`d by default. `mystic-city.webp` is an exception and
+  is committed so a fresh clone has a working background out of the box. Add
+  more exceptions with `!filename.ext` in `.gitignore` if you want to track them.
 
 Tuning lives in `.wezterm.lua` (search for `background`):
 
