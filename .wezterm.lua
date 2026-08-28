@@ -46,6 +46,50 @@ config.window_frame = {
 }
 
 -- ---------------------------------------------------------------------------
+-- Background: solid coolnight base, plus the first image found in
+-- ~/.config/wezterm/backgrounds/ (see that folder's README). Scaled to Cover
+-- so it fills the window in full-screen without distortion.
+-- ---------------------------------------------------------------------------
+local function first_background_image()
+	local dir = wezterm.home_dir .. "/.config/wezterm/backgrounds"
+	local ok, entries = pcall(wezterm.read_dir, dir)
+	if not ok or not entries then
+		return nil
+	end
+	table.sort(entries)
+	for _, path in ipairs(entries) do
+		if path:lower():match("%.png$")
+			or path:lower():match("%.jpe?g$")
+			or path:lower():match("%.gif$")
+			or path:lower():match("%.webp$")
+			or path:lower():match("%.bmp$")
+		then
+			return path
+		end
+	end
+	return nil
+end
+
+config.background = {
+	{ source = { Color = "#011423" }, width = "100%", height = "100%" },
+}
+
+local bg_image = first_background_image()
+if bg_image then
+	table.insert(config.background, {
+		source = { File = bg_image },
+		width = "Cover",
+		height = "Cover",
+		horizontal_align = "Center",
+		vertical_align = "Middle",
+		repeat_x = "NoRepeat",
+		repeat_y = "NoRepeat",
+		opacity = 0.92,
+		hsb = { brightness = 0.04, saturation = 0.9, hue = 1.0 },
+	})
+end
+
+-- ---------------------------------------------------------------------------
 -- Status HUD
 --   left  : pi (AI assistant) token usage / cost for the day
 --   right : workspace · load · battery · clock
