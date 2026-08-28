@@ -15,11 +15,14 @@ if [[ -f "/opt/homebrew/bin/brew" ]] then
 fi
 
 export GOPATH=$HOME/go
-export GOROOT=/usr/local/go
+# export GOROOT=/usr/local/go
+export PATH="/opt/homebrew/opt/go/bin:$PATH"
+export GOROOT="/opt/homebrew/opt/go/libexec"
 export GOBIN=$GOPATH/bin
 export PATH=$PATH:$GOPATH
 export PATH=$PATH:$GOROOT/bin
 export PATH=$PATH:$GOBIN  # Add this line to include the bin directory
+# export PATH=$PATH:/usr/local/bin
 
 # Set dir where zinit and plugins store
 ZINIT_HOME="${XDG_DATA_HOME:-${HOME}/.local/share}/zinit/zinit.git"
