@@ -38,6 +38,24 @@ CACHE_TTL = 30  # seconds
 
 TOKEN_KEYS = ("input", "output", "cacheRead", "cacheWrite")
 
+# Providers whose usage is covered by a flat subscription rather than metered
+# pay-per-token billing. Mirrors pi's built-in isSubscription providers
+# (kimi-coding is subscription-backed even under api_key auth).
+SUBSCRIPTION_PROVIDERS = frozenset(
+    {"anthropic", "github-copilot", "kimi-coding", "openai-codex", "xai"}
+)
+
+
+def provider_of(model: str, explicit: str | None = None) -> str:
+    if explicit:
+        return explicit
+    parts = model.split("/")
+    return parts[0] if len(parts) > 1 else ""
+
+
+def is_subscription(provider: str) -> bool:
+    return provider in SUBSCRIPTION_PROVIDERS
+
 
 # ---------------------------------------------------------------------------
 # pricing
@@ -103,16 +121,18 @@ def scan() -> dict[str, dict[str, dict]]:
     pricing = load_pricing()
     days: dict[str, dict[str, dict]] = defaultdict(lambda: defaultdict(_blank))
 
-    def add(day, model, u, recorded_cost):
+    # cost split by billing kind: {day: {"sub": float, "api": float}}
+    split: dict[str, dict[str, float]] = defaultdict(lambda: {"sub": 0.0, "api": 0.0})
+
+    def add(day, model, u, recorded_cost, provider=""):
         agg = days[day][model]
         for k in TOKEN_KEYS:
             agg[k] += u.get(k, 0) or 0
-        agg["cost"] += (
-            recorded_cost
-            if recorded_cost
-            else estimate_cost(model, u, pricing)
-        )
+        cost = recorded_cost if recorded_cost else estimate_cost(model, u, pricing)
+        agg["cost"] += cost
         agg["calls"] += 1
+        kind = "sub" if is_subscription(provider_of(model, provider)) else "api"
+        split[day][kind] += cost
 
     for path in glob.glob(os.path.join(SESSIONS, "**", "*.jsonl"), recursive=True):
         try:
@@ -144,7 +164,8 @@ def scan() -> dict[str, dict[str, dict]]:
                 cost = u.get("cost")
                 if isinstance(cost, dict):
                     cost = cost.get("total", 0)
-                add(day, canon_model(m.get("model") or "unknown"), u, cost or 0.0)
+                add(day, canon_model(m.get("model") or "unknown"), u, cost or 0.0,
+                    provider=m.get("provider") or "")
 
     # subagent / delegate runs -- timestamp from file mtime
     for path in glob.glob(
@@ -159,14 +180,157 @@ def scan() -> dict[str, dict[str, dict]]:
         if not any(u.get(k) for k in TOKEN_KEYS):
             continue
         day = dt.datetime.fromtimestamp(os.path.getmtime(path)).date().isoformat()
-        add(day, canon_model(meta.get("model") or "unknown"), u, u.get("cost") or 0.0)
+        add(day, canon_model(meta.get("model") or "unknown"), u,
+            u.get("cost") or 0.0, provider=meta.get("provider") or "")
 
-    return {d: dict(models) for d, models in days.items()}
+    out = {d: dict(models) for d, models in days.items()}
+    out["__split__"] = {d: dict(v) for d, v in split.items()}
+    return out
 
 
 # ---------------------------------------------------------------------------
 # cache
 # ---------------------------------------------------------------------------
+def count_prompts(date: str) -> int:
+    """User prompts (role=user messages) on a given local day, cached 30s."""
+    cache = os.path.join(
+        os.environ.get("TMPDIR", "/tmp").rstrip("/"), "pi-usage-prompts.json"
+    )
+    try:
+        st = os.stat(cache)
+        if time.time() - st.st_mtime < CACHE_TTL and st.st_mtime >= newest_session_mtime():
+            return json.load(open(cache)).get(date, 0)
+    except (OSError, ValueError):
+        pass
+    counts: dict[str, int] = defaultdict(int)
+    for path in glob.glob(os.path.join(SESSIONS, "**", "*.jsonl"), recursive=True):
+        try:
+            fh = open(path, encoding="utf-8")
+        except OSError:
+            continue
+        with fh:
+            for line in fh:
+                line = line.strip()
+                if not line or '"role":"user"' not in line and '"role": "user"' not in line:
+                    continue
+                try:
+                    o = json.loads(line)
+                except ValueError:
+                    continue
+                if o.get("type") != "message":
+                    continue
+                m = o.get("message") or {}
+                if m.get("role") != "user":
+                    continue
+                day = _local_day(m.get("timestamp")) or _local_day(o.get("timestamp"))
+                if day:
+                    counts[day] += 1
+    try:
+        tmp = cache + f".{os.getpid()}"
+        json.dump(counts, open(tmp, "w"))
+        os.replace(tmp, cache)
+    except OSError:
+        pass
+    return counts.get(date, 0)
+
+
+# ---------------------------------------------------------------------------
+# phoenix (arize) telemetry -- optional; degrades to "" if unreachable
+# ---------------------------------------------------------------------------
+PHOENIX_BASE = os.environ.get("PHOENIX_URL", "http://localhost:6006")
+PHOENIX_CACHE = os.path.join(
+    os.environ.get("TMPDIR", "/tmp").rstrip("/"), "pi-usage-phoenix.json"
+)
+PHOENIX_TTL = 45  # seconds; the scan is multi-page, so cache longer
+
+
+def _phoenix_projects() -> list[str]:
+    import urllib.request
+    url = f"{PHOENIX_BASE}/v1/projects"
+    with urllib.request.urlopen(url, timeout=3) as r:
+        data = json.load(r)
+    return [p["name"] for p in data.get("data", []) if p.get("name")]
+
+
+def phoenix_scan(date: str) -> dict:
+    """Aggregate LLM span count, latency, and errors for `date` across projects."""
+    import urllib.request
+    import urllib.parse
+    start = (
+        dt.datetime.fromisoformat(date)
+        .astimezone()
+        .astimezone(dt.timezone.utc)
+        .isoformat()
+    )
+    calls = errs = 0
+    lat: list[float] = []
+    for proj in _phoenix_projects():
+        cursor = None
+        for _ in range(30):  # page cap
+            q = {"limit": "100", "start_time": start}
+            if cursor:
+                q["cursor"] = cursor
+            url = f"{PHOENIX_BASE}/v1/projects/{urllib.parse.quote(proj)}/spans?" + urllib.parse.urlencode(q)
+            try:
+                with urllib.request.urlopen(url, timeout=5) as r:
+                    d = json.load(r)
+            except Exception:
+                break
+            for s in d.get("data", []):
+                if s.get("span_kind") == "LLM":
+                    calls += 1
+                    try:
+                        st = dt.datetime.fromisoformat(s["start_time"])
+                        en = dt.datetime.fromisoformat(s["end_time"])
+                        lat.append((en - st).total_seconds())
+                    except (KeyError, ValueError):
+                        pass
+                if s.get("status_code") == "ERROR":
+                    errs += 1
+            cursor = d.get("next_cursor")
+            if not cursor:
+                break
+    lat.sort()
+
+    def pct(q: float) -> float:
+        if not lat:
+            return 0.0
+        return lat[min(len(lat) - 1, int(q * len(lat)))]
+
+    return {"calls": calls, "errs": errs,
+            "p50": round(pct(0.5), 1), "p95": round(pct(0.95), 1)}
+
+
+def phoenix_line(date: str, use_cache: bool = True) -> str:
+    stats = None
+    if use_cache:
+        try:
+            st = os.stat(PHOENIX_CACHE)
+            if time.time() - st.st_mtime < PHOENIX_TTL:
+                blob = json.load(open(PHOENIX_CACHE))
+                if blob.get("date") == date:
+                    stats = blob.get("stats")
+        except (OSError, ValueError):
+            pass
+    if stats is None:
+        try:
+            stats = phoenix_scan(date)
+        except Exception:
+            return ""  # phoenix down -> silent
+        try:
+            tmp = PHOENIX_CACHE + f".{os.getpid()}"
+            json.dump({"date": date, "stats": stats}, open(tmp, "w"))
+            os.replace(tmp, PHOENIX_CACHE)
+        except OSError:
+            pass
+    if not stats or not stats.get("calls"):
+        return ""
+    out = f"\uf0e7{stats['calls']} p50 {stats['p50']:g}s p95 {stats['p95']:g}s"
+    if stats.get("errs"):
+        out += f"  \u26a0{stats['errs']}"
+    return out
+
+
 def newest_session_mtime() -> float:
     newest = 0.0
     for pat in ("**/*.jsonl", "**/subagent-artifacts/*_meta.json"):
@@ -265,6 +429,41 @@ def oneline(agg: dict, date: str) -> str:
         f"󰚩 {human_tokens(t['tokens'])} tok  "
         f"{human_tokens(t['output'])}↓out  {cost}  {delta}  {names}"
     )
+
+
+def dayline(agg: dict, date: str) -> str:
+    """Day total only: tokens + cost, no model names."""
+    models = agg.get(date, {})
+    if not models:
+        return "\u2211 idle today"
+    t = day_totals(models)
+    prompts = count_prompts(date)
+    sp = (agg.get("__split__") or {}).get(date, {})
+    sub, api = sp.get("sub", 0.0), sp.get("api", 0.0)
+
+    def money(x: float) -> str:
+        return f"${x:.2f}" if x >= 0.01 else "$0"
+
+    # sub = API-equivalent value covered by subscription; api = real metered $
+    if sub and api:
+        cost = f"{money(sub)} sub + {money(api)} api"
+    elif sub:
+        cost = f"{money(sub)} sub"
+    else:
+        cost = f"{money(api)} api"
+    return (
+        f"\u2211 {human_tokens(t['tokens'])} tok  {cost}  "
+        f"\u00b7 {prompts} prompt{'s' if prompts != 1 else ''}"
+    )
+
+
+def leftstatus(agg: dict, date: str, use_cache: bool = True) -> str:
+    """Composed wezterm left status: day tokens/cost/prompts + phoenix telemetry.
+    Intended to be run in the background writing to a text file that the UI
+    reads instantly; never call this synchronously from the render loop."""
+    day = dayline(agg, date)
+    ph = phoenix_line(date, use_cache=use_cache)
+    return f"{day}   \u2502 {ph}" if ph else day
 
 
 def date_shift(date: str, days: int) -> str:
@@ -413,6 +612,13 @@ def full_report(agg: dict, date: str, span: int) -> str:
 def main() -> int:
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("--oneline", action="store_true")
+    ap.add_argument("--dayline", action="store_true",
+                    help="day total only: tokens + cost + prompt count")
+    ap.add_argument("--phoenix", action="store_true",
+                    help="phoenix/arize telemetry: LLM calls + latency + errors")
+    ap.add_argument("--leftstatus", action="store_true",
+                    help="composed wezterm left status (dayline + phoenix); "
+                         "run in background, read its output file from the UI")
     ap.add_argument("--window", metavar="CWD",
                     help="per-window line: model + tokens/cost for the latest "
                          "pi session in CWD")
@@ -429,6 +635,19 @@ def main() -> int:
 
     if args.window:
         print(window_oneline(args.window))
+        return 0
+
+    if args.dayline:
+        print(dayline(get_aggregate(use_cache=not args.no_cache), args.date))
+        return 0
+
+    if args.phoenix:
+        print(phoenix_line(args.date, use_cache=not args.no_cache))
+        return 0
+
+    if args.leftstatus:
+        print(leftstatus(get_aggregate(use_cache=not args.no_cache),
+                         args.date, use_cache=not args.no_cache))
         return 0
 
     agg = get_aggregate(use_cache=not args.no_cache)

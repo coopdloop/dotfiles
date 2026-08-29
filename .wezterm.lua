@@ -143,6 +143,39 @@ local function pi_window(dir)
 	return c.text
 end
 
+-- Day usage + Phoenix telemetry for the top-left status.
+--
+-- The Phoenix scan is multi-page and can take several seconds, so we never
+-- run it inline on the render loop. Instead a background process composes the
+-- whole line into a temp file; each render reads that file instantly and, at
+-- most every 20s, kicks off a fresh (non-blocking) refresh.
+local PI_LEFT_FILE = (os.getenv("TMPDIR") or "/tmp/"):gsub("/+$", "") .. "/pi-usage-leftstatus.txt"
+local pi_left = { text = "", at = 0 }
+
+local function pi_left_status()
+	local now = os.time()
+	-- read whatever the background writer last produced
+	local fh = io.open(PI_LEFT_FILE, "r")
+	if fh then
+		local s = fh:read("*a")
+		fh:close()
+		if s then
+			s = s:gsub("%s+$", "")
+			if #s > 0 then pi_left.text = s end
+		end
+	end
+	-- fire-and-forget refresh at most every 20s
+	if now - pi_left.at >= 20 then
+		pi_left.at = now
+		pcall(wezterm.background_child_process, {
+			"/bin/sh", "-c",
+			PI_USAGE .. " --leftstatus > " .. PI_LEFT_FILE .. ".tmp 2>/dev/null && mv "
+				.. PI_LEFT_FILE .. ".tmp " .. PI_LEFT_FILE,
+		})
+	end
+	return pi_left.text
+end
+
 -- Mini bar: filled █ + empty ░ in two colors
 local BFULL = "\xe2\x96\x88" -- █
 local BDIM = "\xe2\x96\x91" -- ░
@@ -246,10 +279,8 @@ local function disk_usage()
 end
 
 wezterm.on("update-status", function(window, pane)
-	-- ---- left: per-window pi model + session usage -----------------------
-	local cwd = pane and pane:get_current_working_dir()
-	local dir = cwd and cwd.file_path or wezterm.home_dir
-	local pi_text = pi_window(dir)
+	-- ---- left: whole-day pi usage + Phoenix telemetry --------------------
+	local pi_text = pi_left_status()
 	if pi_text == "" then
 		window:set_left_status("")
 	else
