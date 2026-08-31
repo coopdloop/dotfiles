@@ -438,19 +438,7 @@ def dayline(agg: dict, date: str) -> str:
         return "\u2211 idle today"
     t = day_totals(models)
     prompts = count_prompts(date)
-    sp = (agg.get("__split__") or {}).get(date, {})
-    sub, api = sp.get("sub", 0.0), sp.get("api", 0.0)
-
-    def money(x: float) -> str:
-        return f"${x:.2f}" if x >= 0.01 else "$0"
-
-    # sub = API-equivalent value covered by subscription; api = real metered $
-    if sub and api:
-        cost = f"{money(sub)} sub + {money(api)} api"
-    elif sub:
-        cost = f"{money(sub)} sub"
-    else:
-        cost = f"{money(api)} api"
+    cost = f"${t['cost']:.2f}" if t["cost"] >= 0.01 else "$0"
     return (
         f"\u2211 {human_tokens(t['tokens'])} tok  {cost}  "
         f"\u00b7 {prompts} prompt{'s' if prompts != 1 else ''}"
