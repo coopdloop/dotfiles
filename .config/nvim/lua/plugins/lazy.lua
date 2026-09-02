@@ -13,7 +13,7 @@ end
 vim.opt.rtp:prepend(lazypath)
 
 require('lazy').setup({
-  { 
+  {
     "onsails/lspkind.nvim",
     config = function()
       local lspkind = require("lspkind")
@@ -154,7 +154,38 @@ require('lazy').setup({
     config = function() require('goto-preview').setup {} end
   },
 
-  { "catppuccin/nvim",         as = "catppuccin" },
+  {
+    "catppuccin/nvim",
+    as = "catppuccin",
+    priority = 1000,
+    config = function()
+      require("catppuccin").setup({
+        flavour = "macchiato",
+        transparent_background = true, -- let the wezterm background show through
+        show_end_of_buffer = false,
+        integrations = {
+          telescope = true,
+          gitsigns = true,
+          treesitter = true,
+          native_lsp = { enabled = true },
+          which_key = true,
+          indent_blankline = { enabled = true },
+        },
+        custom_highlights = function(colors)
+          -- keep popups/sidebars transparent too for the hyprland feel
+          return {
+            NormalFloat = { bg = "NONE" },
+            FloatBorder = { bg = "NONE", fg = colors.blue },
+            TelescopeNormal = { bg = "NONE" },
+            TelescopeBorder = { bg = "NONE" },
+            NvimTreeNormal = { bg = "NONE" },
+            NvimTreeNormalNC = { bg = "NONE" },
+            SignColumn = { bg = "NONE" },
+          }
+        end,
+      })
+    end,
+  },
 
   {
     "windwp/nvim-autopairs",
@@ -356,7 +387,7 @@ require('lazy').setup({
           clear_suggestion = "<C-]>",
           accept_word = "<C-j>",
         },
-        ignore_filetypes = { 
+        ignore_filetypes = {
           gitcommit = true,
           markdown = true,
         },

@@ -144,6 +144,10 @@ alias ou='cd $HOME/notion-obsidian-sync-zazencodes && node batchUpload.js --last
 # Path shortcuts
 alias nvc='cd $HOME/.config/nvim && vim'
 
+# frg: live ripgrep -> fzf -> open pick in nvim (see ~/bin/frg).
+# Also bound in tmux via prefix + g (popup).
+alias frg='~/bin/frg'
+
 # Extended bath for bin scripts
 export PATH=~/bin:$PATH
 

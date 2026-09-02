@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# frg: live ripgrep -> fzf -> open pick in nvim at line:col.
+# Standalone so both the zsh function and tmux popups can call it.
+set -u
+
+rg_prefix='rg --column --line-number --no-heading --color=always --smart-case'
+
+if command -v bat >/dev/null 2>&1; then
+  preview='bat --style=numbers --color=always --highlight-line {2} -- {1}'
+else
+  preview='rg --color=always --context 5 --line-number "" -- {1}'
+fi
+
+query="${1:-}"
+
+out=$(
+  FZF_DEFAULT_COMMAND="$rg_prefix -- ${query:-\"\"}" \
+  fzf --ansi --disabled --query "$query" \
+      --bind "change:reload:$rg_prefix -- {q} || true" \
+      --delimiter : \
+      --preview "$preview" \
+      --preview-window 'right,60%,+{2}/2' \
+      --header 'frg: type to search - Enter opens in nvim'
+) || exit 0
+
+file=$(cut -d: -f1 <<<"$out")
+line=$(cut -d: -f2 <<<"$out")
+col=$(cut -d: -f3 <<<"$out")
+[[ -n "$file" ]] && exec nvim "+call cursor(${line:-1}, ${col:-1})" "$file"
