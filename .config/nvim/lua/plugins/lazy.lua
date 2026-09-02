@@ -125,10 +125,7 @@ require('lazy').setup({
         dashboard.button("SPC f o", "󰈞  Recently opened files"),
         dashboard.button("q", "󰅚  Quit NVIM", ":qa<CR>"),
       }
-      local handle = io.popen('fortune')
-      local fortune = handle:read("*a")
-      handle:close()
-      dashboard.section.footer.val = fortune
+      dashboard.section.footer.val = ""
 
       dashboard.config.opts.noautocmd = true
 
