@@ -156,3 +156,6 @@ export NVM_DIR="$HOME/.nvm"
 [ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"  # This loads nvm bash_completion
 
 . "$HOME/.local/bin/env"
+
+# pi: OpenRouter key for the attest-ai gateway fallback, plus Phoenix tracing gate
+[[ -r "$HOME/.pi/shell/pi-env.zsh" ]] && source "$HOME/.pi/shell/pi-env.zsh"
