@@ -67,6 +67,10 @@ from wezterm -- mainly the status HUD, since Ghostty has no scripting API):
 brew install --cask ghostty
 ```
 
+The HUD readouts themselves are terminal-agnostic (`hud`, `pi-usage`,
+`term-dash` in `bin/`); tmux draws them in its status bar, so they show up in
+whichever terminal you use.
+
 ## Installation
 
 First, check out the dotfiles repo into your $HOME directory using git
@@ -101,6 +105,6 @@ $ stow .
 Re-run `stow --restow .` after adding files to the repo (it does not notice new
 files on its own). `.stowrc` keeps pi's scratch dir and VCS junk out of `$HOME`.
 
-If Homebrew's stow fails with `bad interpreter: /usr/bin/perl5.30`, its shebang
-points at a perl that no longer exists -- `brew reinstall stow`, or run
-`perl /opt/homebrew/bin/stow --restow .`.
+If stow ever fails with `bad interpreter: /usr/bin/perl5.30`, its shebang points
+at a perl that no longer exists -- `brew reinstall stow` fixes it (or run
+`perl /opt/homebrew/bin/stow --restow .` as a stopgap).

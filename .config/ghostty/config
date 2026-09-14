@@ -1,8 +1,9 @@
-# Ghostty — port of ~/.wezterm.lua (coolnight).
+# Ghostty -- port of ~/.wezterm.lua (coolnight).
 #
 # Syntax is plain `key = value`, not Lua: there is no scripting API, so the
-# wezterm status HUD (CPU/RAM/disk/clock/git + pi usage) cannot live here.
-# See README.md in this folder for where each part of the wezterm config went.
+# wezterm status HUD (CPU/RAM/disk/clock/git + pi usage) cannot live here -- it
+# moved to ~/bin/hud, driven from .tmux.conf. See README.md in this folder for
+# where each part of the wezterm config went.
 #
 # Reload while running: Cmd+Shift+R (see keybinds below).
 # Option reference: https://ghostty.org/docs/config/reference
@@ -92,9 +93,12 @@ confirm-close-surface = false
 # Ghostty has no "run this command in a new tab" action, so the dashboards are
 # typed into the *current* terminal instead. `~` is expanded by zsh, not by
 # Ghostty, which is exactly what we want here. The scripts are the same ones
-# .wezterm.lua calls.
-keybind = cmd+shift+u=text:~/.config/wezterm/bin/pi-usage --days 14 --no-cache\n
-keybind = cmd+shift+d=text:~/.config/wezterm/bin/term-dash\n
+# .wezterm.lua calls (shared now: this repo's bin/, stowed to ~/bin and on $PATH).
+keybind = cmd+shift+u=text:~/bin/pi-usage --days 14 --no-cache\n
+keybind = cmd+shift+d=text:~/bin/term-dash\n
+# The persistent HUD (CPU · RAM · disk · branch · clock) has no home in a
+# Ghostty config -- run it as a one-liner, or let tmux draw it: see ~/bin/hud.
+keybind = cmd+shift+h=text:~/bin/hud --ansi cpu ram disk branch clock\n
 keybind = cmd+shift+r=reload_config
 keybind = cmd+shift+enter=new_split:auto
 

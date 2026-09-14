@@ -104,6 +104,9 @@ end
 -- Status HUD
 --   left  : pi (AI assistant) token usage / cost for the day
 --   right : cpu · ram · disk · clock
+-- This HUD is wezterm-only (it draws into the tab bar via a Lua callback).
+-- For terminals without a status bar -- i.e. Ghostty -- the same readouts run
+-- from tmux instead; see ~/bin/hud and .tmux.conf.
 -- ---------------------------------------------------------------------------
 local PALETTE = {
 	cpu = "#FFE073",
@@ -117,7 +120,7 @@ local PALETTE = {
 	pi_down = "#0FC5ED",
 }
 
-local BIN = wezterm.home_dir .. "/.config/wezterm/bin"
+local BIN = wezterm.home_dir .. "/bin" -- shared HUD helpers, stowed to ~/bin
 local PI_USAGE = BIN .. "/pi-usage"
 local TERM_DASH = BIN .. "/term-dash"
 
