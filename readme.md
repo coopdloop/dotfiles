@@ -52,9 +52,19 @@ brew install direnv
 brew install pyenv
 ```
 
-### wezterm emulator
+### Terminal emulator
+
+Either one works with these dotfiles; both configs use the coolnight palette.
+
+wezterm (config: `.wezterm.lua` + `.config/wezterm/`, adds a tab-bar status HUD):
 ```
 brew install --cask wezterm
+```
+
+Ghostty (config: `.config/ghostty/`, see its README for what does not port
+from wezterm -- mainly the status HUD, since Ghostty has no scripting API):
+```
+brew install --cask ghostty
 ```
 
 ## Installation
@@ -87,3 +97,10 @@ then use GNU stow to create symlinks
 ```
 $ stow .
 ```
+
+Re-run `stow --restow .` after adding files to the repo (it does not notice new
+files on its own). `.stowrc` keeps pi's scratch dir and VCS junk out of `$HOME`.
+
+If Homebrew's stow fails with `bad interpreter: /usr/bin/perl5.30`, its shebang
+points at a perl that no longer exists -- `brew reinstall stow`, or run
+`perl /opt/homebrew/bin/stow --restow .`.

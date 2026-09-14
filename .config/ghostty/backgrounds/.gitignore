@@ -1,0 +1,9 @@
+# Don't commit the actual wallpapers -- just this folder + the README.
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+!.gitignore
+!README.md

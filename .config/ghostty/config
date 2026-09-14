@@ -1,0 +1,105 @@
+# Ghostty — port of ~/.wezterm.lua (coolnight).
+#
+# Syntax is plain `key = value`, not Lua: there is no scripting API, so the
+# wezterm status HUD (CPU/RAM/disk/clock/git + pi usage) cannot live here.
+# See README.md in this folder for where each part of the wezterm config went.
+#
+# Reload while running: Cmd+Shift+R (see keybinds below).
+# Option reference: https://ghostty.org/docs/config/reference
+
+# ---------------------------------------------------------------------------
+# Colors  (wezterm: config.colors -> themes/coolnight.conf)
+# ---------------------------------------------------------------------------
+theme = coolnight
+
+# Keep the titlebar/traffic-light area dark regardless of system appearance.
+window-theme = dark
+
+# ---------------------------------------------------------------------------
+# Typography  (wezterm: config.font / font_size)
+# ---------------------------------------------------------------------------
+font-family = MesloLGS Nerd Font Mono
+font-size = 17
+# Ghostty's cells are a touch roomier than wezterm's at the same point size —
+# try 15.5–16 if 17 looks oversized on your display.
+
+# Heavier strokes read better through 76% opacity. Comment out if too bold.
+font-thicken = true
+
+# Nerd Font icons that sit too low/high for p10k powerlines:
+# adjust-cell-height = 5%
+
+# ---------------------------------------------------------------------------
+# Window  (wezterm: window_background_opacity / macos_window_background_blur /
+#          window_padding / window_frame / inactive_pane_hsb)
+# ---------------------------------------------------------------------------
+background-opacity = 0.76
+background-blur = 10
+# wezterm's text_background_opacity has no exact match; this is the inverse knob
+# (apply the window opacity to cells that set their own bg colour too):
+background-opacity-cells = false
+
+window-padding-x = 12
+window-padding-y = 8, 4
+window-padding-balance = true
+
+macos-titlebar-style = tabs
+macos-titlebar-proxy-icon = hidden
+split-divider-color = #033259
+unfocused-split-opacity = 0.85
+window-save-state = always
+
+# ---------------------------------------------------------------------------
+# Wallpaper  (wezterm: config.background + ~/.config/wezterm/backgrounds/)
+# ---------------------------------------------------------------------------
+# Ghostty can't scan a directory for "the first image" the way the Lua did, so
+# the convention is a fixed name: drop an image at
+#   ~/.config/ghostty/backgrounds/coolnight.png
+# (PNG or JPEG only — no webp). The leading `?` means "no warning if missing",
+# so this line is safe to keep when you have no wallpaper.
+# Relative paths resolve against this config file's directory.
+background-image = ?backgrounds/coolnight.png
+background-image-fit = cover
+background-image-position = center
+# wezterm used hsb.brightness = 0.04 to crush the image almost black; with the
+# coolnight bg underneath, ~0.3 is the equivalent starting point.
+background-image-opacity = 0.3
+
+# ---------------------------------------------------------------------------
+# Cursor & selection  (wezterm: default_cursor_style / cursor_* / selection_*)
+# ---------------------------------------------------------------------------
+cursor-style = underline
+cursor-style-blink = false
+mouse-hide-while-typing = true
+
+# ---------------------------------------------------------------------------
+# Behaviour
+# ---------------------------------------------------------------------------
+copy-on-select = clipboard
+macos-option-as-alt = true
+link-url = true
+shell-integration = detect
+# Ghostty injects zsh integration; `no-sudo` keeps `sudo $EDITOR` sane:
+# shell-integration-features = cursor,no-sudo,title
+confirm-close-surface = false
+
+# Wezterm's set_environment_variables PATH hack is unnecessary here — .zshrc
+# already exports pyenv / homebrew / ~/bin on PATH.
+
+# ---------------------------------------------------------------------------
+# Keys  (wezterm: CMD+SHIFT+U pi usage, CMD+SHIFT+D dashboard, scratch tabs)
+# ---------------------------------------------------------------------------
+# Ghostty has no "run this command in a new tab" action, so the dashboards are
+# typed into the *current* terminal instead. `~` is expanded by zsh, not by
+# Ghostty, which is exactly what we want here. The scripts are the same ones
+# .wezterm.lua calls.
+keybind = cmd+shift+u=text:~/.config/wezterm/bin/pi-usage --days 14 --no-cache\n
+keybind = cmd+shift+d=text:~/.config/wezterm/bin/term-dash\n
+keybind = cmd+shift+r=reload_config
+keybind = cmd+shift+enter=new_split:auto
+
+# Unbind a Ghostty default you want back for the shell:
+# keybind = cmd+left=unbind
+
+# Machine-local overrides (gitignored; created on demand):
+config-file = ?local.conf

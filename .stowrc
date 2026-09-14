@@ -1,0 +1,11 @@
+# GNU Stow reads this file when run from the repo root (`stow .`).
+#
+# Ignore top-level things that are not dotfiles: pi's own scratch dir, VCS
+# metadata, editor droppings. Without the .pi rule, stow symlinks every
+# .pi/tasks/session-* directory into ~/.pi/tasks.
+--ignore=^\.pi$
+--ignore=^\.git$
+--ignore=^\.gitignore$
+--ignore=^\.stowrc$
+--ignore=^\.DS_Store$
+--ignore=\.swp$
