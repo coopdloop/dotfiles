@@ -1,6 +1,7 @@
 #!/bin/sh
 # Combined terminal dashboard: system HUD + pi usage.
-# Bound to CMD+SHIFT+D in .wezterm.lua (opens in a scratch tab).
+# Bound to CMD+SHIFT+D in .wezterm.lua (scratch tab) and .config/ghostty/config.
+# For a persistent readout instead of an on-demand one, see ~/bin/hud (tmux bar).
 
 bin_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 

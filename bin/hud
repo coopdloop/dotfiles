@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+# hud: one-line system vitals for a status bar.
+#
+# This is the terminal-agnostic twin of the Lua HUD in ~/.wezterm.lua: Ghostty
+# has no status bar and no scripting API, so those readouts (CPU / RAM / disk /
+# git branch / clock, with the same █░ mini-bars, glyphs and colours) live here
+# instead, driven from tmux's status-right.
+#
+#   hud [--tmux|--ansi|--plain] [segment ...] [dir]
+#
+#   segment : cpu ram disk branch clock      (default: cpu ram disk clock)
+#   dir     : cwd for the branch segment     (default: $PWD)
+#   --tmux  : emit tmux `#[fg=...]` styles   -> for status-left/right
+#   --ansi  : emit SGR escapes               -> for prompts or any terminal
+#   --plain : no colour at all               (default)
+#
+# Segments are deliberately terser than the Lua's (that bar had the whole tab
+# to itself; this one shares a row with the window list), and it reads from
+# sysctl/vm_stat/df like the Lua did -- a few ms per run, safe at 5-10s.
+
+set -u
+
+# coolnight palette, same roles as PALETTE in ~/.wezterm.lua
+C_CPU='#FFE073'
+C_RAM='#a277ff'
+C_DISK='#44FFB1'
+C_GIT='#E52E2E'
+C_CLOCK='#0FC5ED'
+C_DIM='#214969'
+BARW=6
+BFULL='█'
+BDIM='░'
+BRANCH_GLYPH=$'\xee\x9c\xa5' #  as used by wezterm
+
+MODE=plain
+SEGMENTS=''
+DIR=$PWD
+
+for arg in "$@"; do
+  case $arg in
+    --tmux | --ansi | --plain) MODE=${arg#--} ;;
+    cpu | ram | disk | branch | clock) SEGMENTS="$SEGMENTS $arg" ;;
+    *) DIR=$arg ;;
+  esac
+done
+[ -n "$SEGMENTS" ] || SEGMENTS=' cpu ram disk clock'
+
+sty() { # sty colour text
+  case $MODE in
+    tmux) printf '#[fg=%s]%s#[fg=default]' "$1" "$2" ;;
+    ansi)
+      local h=${1#\#} r g b
+      r=$((16#${h:0:2}))
+      g=$((16#${h:2:2}))
+      b=$((16#${h:4:2}))
+      printf '\033[38;2;%d;%d;%dm%s\033[0m' "$r" "$g" "$b" "$2"
+      ;;
+    *) printf '%s' "$2" ;;
+  esac
+}
+
+bar() { # bar pct colour -> filled cells in colour + empty cells dimmed
+  local pct=$1 colour=$2 n out='' i
+  n=$(awk -v p="$pct" -v w="$BARW" 'BEGIN { n = int(p / 100 * w + 0.5); if (n > w) n = w; if (n < 0) n = 0; print n }')
+  for ((i = 0; i < n; i++)); do out+=$BFULL; done
+  local empty=''
+  for ((i = n; i < BARW; i++)); do empty+=$BDIM; done
+  printf '%s%s' "$(sty "$colour" "$out")" "$(sty "$C_DIM" "$empty")"
+}
+
+seg_cpu() {
+  local load ncpu pct
+  load=$(sysctl -n vm.loadavg 2>/dev/null | tr -d '{}' | awk '{ print $1 }')
+  ncpu=$(sysctl -n hw.ncpu 2>/dev/null)
+  if [ -z "$load" ] || [ -z "$ncpu" ]; then printf '%s' 'CPU -'; return; fi
+  pct=$(awk -v l="$load" -v n="$ncpu" 'BEGIN { printf "%.0f", l / n * 100 }')
+  printf '%s' "$(sty "$C_CPU" "CPU ${pct}% $(bar "$pct" "$C_CPU")")"
+}
+
+seg_ram() {
+  local total ps vm used label pct
+  total=$(sysctl -n hw.memsize 2>/dev/null)
+  vm=$(vm_stat 2>/dev/null)
+  if [ -z "$total" ] || [ -z "$vm" ]; then printf '%s' 'RAM -'; return; fi
+  ps=$(printf '%s\n' "$vm" | awk '/page size of/ { print $8 }')
+  [ -n "$ps" ] || ps=16384
+  used=$(printf '%s\n' "$vm" | awk -F': *' -v ps="$ps" -v t="$total" '
+    { gsub(/\./, "", $NF) }
+    /Pages active/            { a  = $NF }
+    /Pages wired down/        { w  = $NF }
+    /occupied by compressor/  { c  = $NF }
+    END { printf "%.2f %.2f", (a + w + c) * ps / 1073741824, (a + w + c) * ps / t * 100 }')
+  set -- $used
+  # total is fixed and rarely interesting: keep the used figure only
+  label=$(awk -v u="${1:-0}" 'BEGIN { printf "%.1fG", u }')
+  printf '%s' "$(sty "$C_RAM" "RAM ${label} $(bar "${2:-0}" "$C_RAM")")"
+}
+
+seg_disk() {
+  local line total used pct
+  line=$(df -h / 2>/dev/null | awk 'NR==2')
+  if [ -z "$line" ]; then printf '%s' 'DSK -'; return; fi
+  total=$(printf '%s' "$line" | awk '{ print $2 }')
+  used=$(printf '%s' "$line" | awk '{ print $3 }')
+  pct=$(printf '%s' "$line" | awk '{ gsub(/%/, "", $5); print $5 }')
+  used=${used%i} # df's binary units (17Gi, 228Gi) read better as 17G/228G
+  total=${total%i}
+  printf '%s' "$(sty "$C_DISK" "DSK ${used}/${total} $(bar "${pct:-0}" "$C_DISK")")"
+}
+
+seg_branch() { # silent when dir is not a git repo, like the Lua did
+  local b
+  b=$(git -C "$DIR" rev-parse --abbrev-ref HEAD 2>/dev/null) || return 0
+  [ -n "$b" ] && printf '%s' "$(sty "$C_GIT" "$BRANCH_GLYPH $b")"
+}
+
+seg_clock() { printf '%s' "$(sty "$C_CLOCK" "$(date '+%a %H:%M')")"; }
+
+out=''
+for s in $SEGMENTS; do
+  text=$(seg_"$s")
+  [ -n "$text" ] || continue
+  [ -n "$out" ] && out+=$(sty "$C_DIM" '  ')
+  out+=$text
+done
+printf '%s\n' "$out"
