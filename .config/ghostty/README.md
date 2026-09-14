@@ -33,7 +33,7 @@ ghostty +list-keybinds | grep 'cmd+shift'    # check for collisions
 
 | wezterm (`~/.wezterm.lua`)              | Ghostty (`config`)                                              |
 | --------------------------------------- | --------------------------------------------------------------- |
-| `config.colors` (coolnight)             | `themes/coolnight.conf`, selected with `theme = coolnight`       |
+| `config.colors` (coolnight)             | `themes/coolnight`, selected with `theme = coolnight` — **no extension**, Ghostty treats the name as a literal filename (`ghostty +list-themes` proves it) |
 | `font` / `font_size`                    | `font-family` / `font-size`                                     |
 | `window_background_opacity` + blur      | `background-opacity` + `background-blur`                        |
 | `window_padding`                        | `window-padding-x` / `window-padding-y = 8, 4`                  |

@@ -1,7 +1,11 @@
 # coolnight — exact port of config.colors in ~/.wezterm.lua
 #
 # A theme file is just another Ghostty config snippet; it may not set `theme`
-# or `config-file`. Selected by name from ~/.config/ghostty/themes/.
+# or `config-file`.
+#
+# NOTE the extensionless filename: Ghostty uses `theme = <name>` verbatim as a
+# file name inside ~/.config/ghostty/themes/ (no `.conf` fallback), so a file
+# called coolnight.conf is "theme not found". Verify with `ghostty +list-themes`.
 
 foreground = #CBE0F0
 background = #011423

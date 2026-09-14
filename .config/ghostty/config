@@ -9,8 +9,12 @@
 # Option reference: https://ghostty.org/docs/config/reference
 
 # ---------------------------------------------------------------------------
-# Colors  (wezterm: config.colors -> themes/coolnight.conf)
+# Colors  (wezterm: config.colors -> themes/coolnight)
 # ---------------------------------------------------------------------------
+# The theme file is named exactly `coolnight`, no extension: Ghostty uses the
+# value of `theme = <name>` as a literal filename inside
+# ~/.config/ghostty/themes/ and appends nothing, so coolnight.conf is "theme not
+# found". Check with `ghostty +list-themes`.
 theme = coolnight
 
 # Keep the titlebar/traffic-light area dark regardless of system appearance.
