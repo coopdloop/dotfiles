@@ -4,9 +4,6 @@
 -- vim.keymap.set('n', '<leader>e', vim.diagnostic.open_float)
 -- vim.keymap.set('n', '<leader>q', vim.diagnostic.setloclist)
 --
-local lspconfig = require("lspconfig")
-local capabilities = vim.lsp.protocol.make_client_capabilities()
-
 -- LSP settings.
 --  This function gets run when an LSP connects to a particular buffer.
 local on_attach = function(_, bufnr)
@@ -54,68 +51,61 @@ local on_attach = function(_, bufnr)
   end, { desc = 'Format current buffer with LSP' })
 end
 
+vim.api.nvim_create_autocmd('LspAttach', {
+  callback = function(args)
+    local client = vim.lsp.get_client_by_id(args.data.client_id)
+    if client then
+      on_attach(client, args.buf)
+    end
+  end,
+})
+
 -- Setup mason so it can manage external tooling
 require('mason').setup()
 
 -- Enable the following language servers
--- Feel free to add/remove any LSPs that you want here. They will automatically be installed
-local servers = { 'pyright', 'tsserver', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraform_ls',
+-- Feel free to add/remove any LSPs that you want here. Names are the
+-- nvim-lspconfig config names: tsserver -> ts_ls and terraform_ls -> terraformls
+-- were renamed upstream.
+local servers = { 'pyright', 'ts_ls', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraformls',
   'tflint', 'lua_ls', 'rust_analyzer', 'nil_ls', 'yamlls', 'ansiblels', 'jinja_lsp', 'ruff' }
 
--- Ensure the servers above are installed
--- require('mason-lspconfig').setup {
---   ensure_installed = servers,
---   automatic_installation = true,
--- }
-
 require('mason-lspconfig').setup {
-  handlers = {
-    function(server_name)
-      local server = servers[server_name] or {}
-      
-      -- Special Python configuration
-      if server_name == 'pyright' then
-        server.settings = {
-          python = {
-            analysis = {
-              autoSearchPaths = true,
-              useLibraryCodeForTypes = true,
-              diagnosticMode = "workspace",
-            },
-          },
-        }
-      end
-      
-      -- Special Ruff configuration for Python
-      if server_name == 'ruff' then
-        server.init_options = {
-          settings = {
-            args = { "--config", "pyproject.toml" },
-          },
-        }
-      end
-
-      server.capabilities = vim.tbl_deep_extend('force', {}, capabilities, server.capabilities or {})
-      server.on_attach = on_attach
-      require('lspconfig')[server_name].setup(server)
-    end,
-  },
+  -- v2 dropped `handlers`; per-server setup lives in the vim.lsp.config calls below.
+  -- Enable from `servers` rather than from whatever mason happens to have installed.
+  automatic_enable = false,
 }
 
--- lspconfig.yamlls.setup{}
-
-lspconfig.html.setup({
-  on_attach = on_attach,
-  capabilities = capabilities,
-  filetypes = { "html", "templ", "astro", "tsx", "jsx", "jsx", "php" },
+-- nvim-cmp supports additional completion capabilities
+vim.lsp.config('*', {
+  capabilities = require('cmp_nvim_lsp').default_capabilities(),
 })
 
+vim.lsp.config('pyright', {
+  settings = {
+    python = {
+      analysis = {
+        autoSearchPaths = true,
+        useLibraryCodeForTypes = true,
+        diagnosticMode = "workspace",
+      },
+    },
+  },
+})
 
--- lspconfig.terraform_ls.setup({})
+vim.lsp.config('ruff', {
+  init_options = {
+    settings = {
+      args = { "--config", "pyproject.toml" },
+    },
+  },
+})
 
+vim.lsp.config('html', {
+  filetypes = { "html", "templ", "astro", "tsx", "jsx", "php" },
+})
 
--- nvim-cmp supports additional completion capabilities
-capabilities = require('cmp_nvim_lsp').default_capabilities(capabilities)
+vim.lsp.enable(servers)
 
 -- Turn on lsp status information
 require('fidget').setup()
