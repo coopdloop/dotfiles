@@ -413,6 +413,18 @@ require('lazy').setup({
 
   -- line indent pretty
   { "lukas-reineke/indent-blankline.nvim",  main = "ibl",     opts = {} },
+
+  {
+    "sphamba/smear-cursor.nvim",
+    opts = {
+      -- wezterm and ghostty both paint the real cursor #47FF9C, overriding the
+      -- GUI cursor color nvim asks for, so the smear has to be told explicitly.
+      cursor_color = "#47FF9C",
+      -- both terminals are translucent, and catppuccin runs with a transparent
+      -- background; this is the coolnight base the smear erases itself with.
+      transparent_bg_fallback_color = "#011423",
+    },
+  },
   {
     "mbbill/undotree",
     lazy = true,
