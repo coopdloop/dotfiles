@@ -63,6 +63,11 @@ vim.api.nvim_create_autocmd('LspAttach', {
 -- Setup mason so it can manage external tooling
 require('mason').setup()
 
+-- terraform-ls, htmx-lsp and tflint chatter on stderr at ERROR level, which is
+-- above the default WARN threshold, so lsp.log grew to 1.1G. While debugging an
+-- LSP, flip logging back on with :lua vim.lsp.log.set_level('info')
+vim.lsp.log.set_level('off')
+
 -- Enable the following language servers
 -- Feel free to add/remove any LSPs that you want here. Names are the
 -- nvim-lspconfig config names: tsserver -> ts_ls and terraform_ls -> terraformls
@@ -70,10 +75,17 @@ require('mason').setup()
 local servers = { 'pyright', 'ts_ls', 'astro', 'html', 'gopls', 'tailwindcss', 'htmx', 'templ', 'terraformls',
   'tflint', 'lua_ls', 'rust_analyzer', 'nil_ls', 'yamlls', 'ansiblels', 'jinja_lsp', 'ruff' }
 
+-- Servers mason should provide. rust_analyzer comes from rustup, gopls and
+-- templ from `go install`, ruff from pyenv; listing those here would let mason
+-- shadow the toolchain-managed copies.
+local mason_ensure = { 'pyright', 'ts_ls', 'astro', 'html', 'tailwindcss', 'htmx', 'terraformls', 'tflint',
+  'lua_ls', 'nil_ls', 'yamlls', 'ansiblels', 'jinja_lsp' }
+
 require('mason-lspconfig').setup {
   -- v2 dropped `handlers`; per-server setup lives in the vim.lsp.config calls below.
   -- Enable from `servers` rather than from whatever mason happens to have installed.
   automatic_enable = false,
+  ensure_installed = mason_ensure,
 }
 
 -- nvim-cmp supports additional completion capabilities
@@ -103,6 +115,17 @@ vim.lsp.config('ruff', {
 
 vim.lsp.config('html', {
   filetypes = { "html", "templ", "astro", "tsx", "jsx", "php" },
+})
+
+-- Upstream's terraformls spec calls vim.lsp.codelens.enable(), which only exists
+-- from 0.11.2 on; this build is 0.11.0. The guard keeps codelens once neovim is
+-- upgraded, and drops it (silently) until then.
+vim.lsp.config('terraformls', {
+  on_attach = function(_, bufnr)
+    if vim.lsp.codelens.enable then
+      vim.lsp.codelens.enable(true, { bufnr = bufnr })
+    end
+  end,
 })
 
 vim.lsp.enable(servers)
