@@ -57,6 +57,11 @@ autoload -U compinit && compinit
 
 zinit cdreplay -q
 
+# herdr completions
+if command -v herdr >/dev/null 2>&1; then
+  source <(herdr completion zsh)
+fi
+
 # To customize prompt, run `p10k configure` or edit ~/.p10k.zsh.
 [[ ! -f ~/.p10k.zsh ]] || source ~/.p10k.zsh
 

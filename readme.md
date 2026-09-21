@@ -90,6 +90,11 @@ Please read this documentation if using tmux:
 https://github.com/tmux-plugins/tpm
 ```
 
+### herdr
+```
+brew install herdr
+```
+
 Nerd font:
 
 ```

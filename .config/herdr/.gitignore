@@ -1,0 +1,6 @@
+# Runtime files herdr writes next to config.toml (logs, sockets, session
+# state). These only land here if stow folds the whole directory into a
+# symlink on a fresh machine.
+*
+!config.toml
+!.gitignore
